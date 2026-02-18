@@ -1,7 +1,6 @@
 #pragma once
 #include <string>
 #include <memory>
-#include <typeindex>
 #include "Transform.h"
 #include "Component.h"
 
@@ -18,15 +17,15 @@ namespace dae
 		bool m_markedForRemoval{ false };
 	public:
 		GameObject() = default;
-		virtual ~GameObject();
+		~GameObject();
 
 		GameObject(const GameObject& other) = delete;
 		GameObject(GameObject&& other) = delete;
 		GameObject& operator=(const GameObject& other) = delete;
 		GameObject& operator=(GameObject&& other) = delete;
 
-		virtual void Update();
-		virtual void Render() const;
+		void Update();
+		void Render() const;
 
 		void SetTexture(const std::string& filename);
 		void SetPosition(float x, float y);
@@ -48,10 +47,9 @@ namespace dae
 		{
 			for (const auto& component : m_components)
 			{
-				if (typeid(*component) == typeid(T))
-				{
-					return static_cast<T*>(component.get());
-				}
+				T* result = dynamic_cast<T*>(component.get());
+				if (result)
+					return result;
 			}
 			return nullptr;
 		}
@@ -61,10 +59,8 @@ namespace dae
 		{
 			for (const auto& component : m_components)
 			{
-				if (typeid(*component) == typeid(T))
-				{
+				if (dynamic_cast<T*>(component.get()))
 					return true;
-				}
 			}
 			return false;
 		}
@@ -74,10 +70,11 @@ namespace dae
 		{
 			for (const auto& component : m_components)
 			{
-				if (typeid(*component) == typeid(T))
+				if (dynamic_cast<T*>(component.get()))
 				{
 					component->MarkForRemoval();
 					m_componentsToRemove.push_back(component.get());
+					return;
 				}
 			}
 		}
