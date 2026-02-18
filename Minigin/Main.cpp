@@ -9,6 +9,7 @@
 #include "SceneManager.h"
 #include "ResourceManager.h"
 #include "TextComponent.h"
+#include "FPSComponent.h"
 #include "Scene.h"
 
 #include <filesystem>
@@ -18,21 +19,32 @@ static void load()
 {
 	auto& scene = dae::SceneManager::GetInstance().CreateScene();
 
+	//Background
 	auto go = std::make_unique<dae::GameObject>();
 	go->SetTexture("background.png");
 	scene.Add(std::move(go));
 
+	//Logo
 	go = std::make_unique<dae::GameObject>();
 	go->SetTexture("logo.png");
 	go->SetPosition(358, 180);
 	scene.Add(std::move(go));
 
+	//Title text
 	auto titleGo = std::make_unique<dae::GameObject>();
 	auto font = dae::ResourceManager::GetInstance().LoadFont("Lingua.otf", 36);
 	auto tc = titleGo->AddComponent<dae::TextComponent>("Programming 4 Assignment", font);
 	tc->SetColor({ 255, 255, 0, 255 });
 	tc->SetPosition(292, 20);
 	scene.Add(std::move(titleGo));
+
+	//FPS counter
+	auto fpsGo = std::make_unique<dae::GameObject>();
+	auto fpsText = fpsGo->AddComponent<dae::TextComponent>("0 FPS", font);
+	fpsText->SetColor({ 255, 255, 255, 255 });
+	fpsText->SetPosition(10, 10);
+	fpsGo->AddComponent<dae::FPSComponent>();
+	scene.Add(std::move(fpsGo));
 }
 
 int main(int, char*[]) {

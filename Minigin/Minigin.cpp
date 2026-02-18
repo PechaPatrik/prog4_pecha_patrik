@@ -1,6 +1,8 @@
 ﻿#include <stdexcept>
 #include <sstream>
 #include <iostream>
+#include <thread>
+#include <chrono>
 
 #if WIN32
 #define WIN32_LEAN_AND_MEAN 
@@ -104,16 +106,39 @@ namespace dae {
 	{
 		m_quit = !InputManager::GetInstance().ProcessInput();
 
-		static Uint64 previousTime = SDL_GetTicks();
-		Uint64 currentTime = SDL_GetTicks();
-		float deltaTime = (currentTime - previousTime) / 1000.0f;
-		previousTime = currentTime;
+		using clock = std::chrono::high_resolution_clock;
+		using duration = std::chrono::duration<float>;
 
-		const float maxDeltaTime = 0.05f; // 20FPS minimum simulation
-		if (deltaTime > maxDeltaTime)
-			deltaTime = maxDeltaTime;
+		static auto frameStart = clock::now();
+		static float accumulatedTime = 0.f;
 
-		SceneManager::GetInstance().Update(deltaTime);
+		auto now = clock::now();
+		float deltaTime = std::chrono::duration<float>(now - frameStart).count();
+		frameStart = now;
+
+		if (m_maxFPS <= 0)
+		{
+			const float maxDeltaTime = 0.05f; // 20FPS minimum simulation
+			if (deltaTime > maxDeltaTime) deltaTime = maxDeltaTime;
+			SceneManager::GetInstance().Update(static_cast<float>(deltaTime));
+		}
+		else
+		{
+			const float fixedStep = 1.f / m_maxFPS;
+			const float maxAccumulated = 0.1f;
+
+			if (deltaTime > maxAccumulated) deltaTime = maxAccumulated;
+			accumulatedTime += deltaTime;
+
+			while (accumulatedTime >= fixedStep)
+			{
+				SceneManager::GetInstance().Update(static_cast<float>(fixedStep));
+				accumulatedTime -= fixedStep;
+			}
+
+			std::this_thread::sleep_until(frameStart + duration{ fixedStep });
+		}
+
 		Renderer::GetInstance().Render();
 	}
 }
