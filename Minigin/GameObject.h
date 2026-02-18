@@ -9,12 +9,6 @@ namespace dae
 	class Texture2D;
 	class GameObject final
 	{
-	private:
-		Transform m_transform{};
-		std::shared_ptr<Texture2D> m_texture{};
-		std::vector<std::unique_ptr<Component>> m_components{};
-		std::vector<Component*> m_componentsToRemove{};
-		bool m_markedForRemoval{ false };
 	public:
 		GameObject() = default;
 		~GameObject();
@@ -24,7 +18,7 @@ namespace dae
 		GameObject& operator=(const GameObject& other) = delete;
 		GameObject& operator=(GameObject&& other) = delete;
 
-		void Update();
+		void Update(float deltaTime);
 		void Render() const;
 
 		void SetTexture(const std::string& filename);
@@ -73,14 +67,17 @@ namespace dae
 				if (dynamic_cast<T*>(component.get()))
 				{
 					component->MarkForRemoval();
-					m_componentsToRemove.push_back(component.get());
 					return;
 				}
 			}
 		}
 
-		void RemoveMarkedComponents();
 		void MarkForRemoval() { m_markedForRemoval = true; }
 		bool IsMarkedForRemoval() const { return m_markedForRemoval; }
+	private:
+		Transform m_transform{};
+		std::shared_ptr<Texture2D> m_texture{};
+		std::vector<std::unique_ptr<Component>> m_components{};
+		bool m_markedForRemoval{ false };
 	};
 }

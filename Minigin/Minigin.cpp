@@ -109,11 +109,11 @@ namespace dae {
 		float deltaTime = (currentTime - previousTime) / 1000.0f;
 		previousTime = currentTime;
 
-		const float maxDeltaTime = 0.05f; // 50ms max
+		const float maxDeltaTime = 0.05f; // 20FPS minimum simulation
 		if (deltaTime > maxDeltaTime)
 			deltaTime = maxDeltaTime;
 
-		SceneManager::GetInstance().Update();
+		SceneManager::GetInstance().Update(deltaTime);
 		Renderer::GetInstance().Render();
 	}
 }

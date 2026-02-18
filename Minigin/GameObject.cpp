@@ -7,17 +7,19 @@ using namespace dae;
 
 GameObject::~GameObject() = default;
 
-void GameObject::Update()
+void GameObject::Update(float deltaTime)
 {
-	RemoveMarkedComponents();
-
 	for (auto& component : m_components)
 	{
 		if (!component->IsMarkedForRemoval())
 		{
-			component->Update();
+			component->Update(deltaTime);
 		}
 	}
+
+	std::erase_if(m_components, [](const std::unique_ptr<Component>& component) {
+		return component->IsMarkedForRemoval();
+		});
 }
 
 void GameObject::Render() const
@@ -45,20 +47,4 @@ void GameObject::SetTexture(const std::string& filename)
 void GameObject::SetPosition(float x, float y)
 {
 	m_transform.SetPosition(x, y, 0.0f);
-}
-
-void GameObject::RemoveMarkedComponents()
-{
-	if (m_componentsToRemove.empty())
-		return;
-
-	// Remove from vector
-	auto it = std::remove_if(m_components.begin(), m_components.end(),
-		[this](const std::unique_ptr<Component>& component) {
-			return std::find(m_componentsToRemove.begin(), m_componentsToRemove.end(),
-				component.get()) != m_componentsToRemove.end();
-		});
-
-	m_components.erase(it, m_components.end());
-	m_componentsToRemove.clear();
 }

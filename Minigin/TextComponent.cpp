@@ -14,7 +14,7 @@ dae::TextComponent::TextComponent(GameObject* pOwner, const std::string& text, s
 {
 }
 
-void dae::TextComponent::Update()
+void dae::TextComponent::Update(float /*deltaTime*/) //delta time isn't needed
 
 {
 	if (m_needsUpdate)
