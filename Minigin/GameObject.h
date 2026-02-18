@@ -6,8 +6,9 @@
 namespace dae
 {
 	class Texture2D;
-	class GameObject 
+	class GameObject
 	{
+	private:
 		Transform m_transform{};
 		std::shared_ptr<Texture2D> m_texture{};
 	public:

@@ -10,6 +10,7 @@ dae::TextObject::TextObject(const std::string& text, std::shared_ptr<Font> font,
 { }
 
 void dae::TextObject::Update()
+
 {
 	if (m_needsUpdate)
 	{

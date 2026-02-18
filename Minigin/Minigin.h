@@ -7,6 +7,7 @@ namespace dae
 {
 	class Minigin final
 	{
+	private:
 		bool m_quit{};
 	public:
 		explicit Minigin(const std::filesystem::path& dataPath);

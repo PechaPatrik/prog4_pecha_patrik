@@ -54,53 +54,66 @@ void PrintSDLVersion()
 	LogSDLVersion("Linked with SDL_ttf ", SDL_VERSIONNUM_MAJOR(version), SDL_VERSIONNUM_MINOR(version),	SDL_VERSIONNUM_MICRO(version));
 }
 
-dae::Minigin::Minigin(const std::filesystem::path& dataPath)
-{
-	PrintSDLVersion();
-	
-	if (!SDL_InitSubSystem(SDL_INIT_VIDEO))
+namespace dae {
+	Minigin::Minigin(const std::filesystem::path& dataPath)
 	{
-		SDL_Log("Renderer error: %s", SDL_GetError());
-		throw std::runtime_error(std::string("SDL_Init Error: ") + SDL_GetError());
+		PrintSDLVersion();
+
+		if (!SDL_InitSubSystem(SDL_INIT_VIDEO))
+		{
+			SDL_Log("Renderer error: %s", SDL_GetError());
+			throw std::runtime_error(std::string("SDL_Init Error: ") + SDL_GetError());
+		}
+
+		g_window = SDL_CreateWindow(
+			"Programming 4 assignment",
+			1024,
+			576,
+			SDL_WINDOW_OPENGL
+		);
+		if (g_window == nullptr)
+		{
+			throw std::runtime_error(std::string("SDL_CreateWindow Error: ") + SDL_GetError());
+		}
+
+		Renderer::GetInstance().Init(g_window);
+		ResourceManager::GetInstance().Init(dataPath);
 	}
 
-	g_window = SDL_CreateWindow(
-		"Programming 4 assignment",
-		1024,
-		576,
-		SDL_WINDOW_OPENGL
-	);
-	if (g_window == nullptr) 
+	Minigin::~Minigin()
 	{
-		throw std::runtime_error(std::string("SDL_CreateWindow Error: ") + SDL_GetError());
+		Renderer::GetInstance().Destroy();
+		SDL_DestroyWindow(g_window);
+		g_window = nullptr;
+		SDL_Quit();
 	}
 
-	Renderer::GetInstance().Init(g_window);
-	ResourceManager::GetInstance().Init(dataPath);
-}
+	void dae::Minigin::Run(const std::function<void()>& load)
+	{
+		load();
 
-dae::Minigin::~Minigin()
-{
-	Renderer::GetInstance().Destroy();
-	SDL_DestroyWindow(g_window);
-	g_window = nullptr;
-	SDL_Quit();
-}
-
-void dae::Minigin::Run(const std::function<void()>& load)
-{
-	load();
 #ifndef __EMSCRIPTEN__
-	while (!m_quit)
-		RunOneFrame();
+		while (!m_quit)
+			RunOneFrame();
 #else
-	emscripten_set_main_loop_arg(&LoopCallback, this, 0, true);
+		emscripten_set_main_loop_arg(&LoopCallback, this, 0, true);
 #endif
-}
+	}
 
-void dae::Minigin::RunOneFrame()
-{
-	m_quit = !InputManager::GetInstance().ProcessInput();
-	SceneManager::GetInstance().Update();
-	Renderer::GetInstance().Render();
+	void Minigin::RunOneFrame()
+	{
+		m_quit = !InputManager::GetInstance().ProcessInput();
+
+		static Uint64 previousTime = SDL_GetTicks();
+		Uint64 currentTime = SDL_GetTicks();
+		float deltaTime = (currentTime - previousTime) / 1000.0f;
+		previousTime = currentTime;
+
+		const float maxDeltaTime = 0.05f; // 50ms max
+		if (deltaTime > maxDeltaTime)
+			deltaTime = maxDeltaTime;
+
+		SceneManager::GetInstance().Update();
+		Renderer::GetInstance().Render();
+	}
 }
