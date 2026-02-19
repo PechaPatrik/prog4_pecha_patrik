@@ -113,21 +113,20 @@ namespace dae {
 		static float accumulatedTime = 0.f;
 
 		auto now = clock::now();
-		float deltaTime = std::chrono::duration<float>(now - frameStart).count();
+		float deltaTime = duration(now - frameStart).count();
 		frameStart = now;
+		const float maxDeltaTime = 0.1f; // 10FPS minimum simulation
 
-		if (m_maxFPS <= 0)
+		if (m_maxFPS <= 0) //unlimited FPS
 		{
-			const float maxDeltaTime = 0.05f; // 20FPS minimum simulation
 			if (deltaTime > maxDeltaTime) deltaTime = maxDeltaTime;
 			SceneManager::GetInstance().Update(static_cast<float>(deltaTime));
 		}
 		else
 		{
 			const float fixedStep = 1.f / m_maxFPS;
-			const float maxAccumulated = 0.1f;
 
-			if (deltaTime > maxAccumulated) deltaTime = maxAccumulated;
+			if (deltaTime > maxDeltaTime) deltaTime = maxDeltaTime;
 			accumulatedTime += deltaTime;
 
 			while (accumulatedTime >= fixedStep)

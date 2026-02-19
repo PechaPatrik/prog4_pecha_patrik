@@ -7,7 +7,6 @@ namespace dae
 	class Component
 	{
 	public:
-		explicit Component(GameObject* pOwner);
 		virtual ~Component() = default;
 
 		Component(const Component& other) = delete;
@@ -18,12 +17,14 @@ namespace dae
 		virtual void Update(float deltaTime) = 0;
 		virtual void Render() const {}
 
-		GameObject* GetOwner() const { return m_pOwner; }
 		bool IsMarkedForRemoval() const { return m_markedForRemoval; }
 		void MarkForRemoval() { m_markedForRemoval = true; }
 
-	protected:
+	private:
 		GameObject* m_pOwner;
+	protected:
+		explicit Component(GameObject* pOwner);
+		GameObject* GetOwner() const { return m_pOwner; }
 		bool m_markedForRemoval{ false };
 	};
 }

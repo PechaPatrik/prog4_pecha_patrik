@@ -5,8 +5,6 @@
 
 using namespace dae;
 
-GameObject::~GameObject() = default;
-
 void GameObject::Update(float deltaTime)
 {
 	for (auto& component : m_components)
