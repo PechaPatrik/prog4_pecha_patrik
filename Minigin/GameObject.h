@@ -22,7 +22,6 @@ namespace dae
 		void FixedUpdate(float fixedTimeStep);
 		void Render() const;
 
-		void SetTexture(const std::string& filename);
 		void SetPosition(float x, float y);
 		const glm::vec3& GetPosition() const { return m_transform.GetPosition(); }
 
@@ -77,7 +76,6 @@ namespace dae
 		bool IsMarkedForRemoval() const { return m_markedForRemoval; }
 	private:
 		Transform m_transform{};
-		std::shared_ptr<Texture2D> m_texture{};
 		std::vector<std::unique_ptr<Component>> m_components{};
 		bool m_markedForRemoval{ false };
 	};

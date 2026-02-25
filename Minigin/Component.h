@@ -22,10 +22,10 @@ namespace dae
 		void MarkForRemoval() { m_markedForRemoval = true; }
 
 	private:
-		GameObject* m_pOwner;
+		const GameObject* m_pOwner;
 	protected:
 		explicit Component(GameObject* pOwner);
-		GameObject* GetOwner() const { return m_pOwner; }
+		const GameObject* GetOwner() const { return m_pOwner; }
 		bool m_markedForRemoval{ false };
 	};
 }
