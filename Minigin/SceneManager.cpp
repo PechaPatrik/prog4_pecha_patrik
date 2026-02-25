@@ -6,7 +6,25 @@ namespace dae {
 	{
 		for (auto& scene : m_scenes)
 		{
-			scene->Update(deltaTime);
+			if (!scene->IsMarkedForRemoval()) 
+			{
+				scene->Update(deltaTime);
+			}
+		}
+
+		std::erase_if(m_scenes, [](const auto& scene) {
+			return scene->IsMarkedForRemoval();
+			});
+	}
+
+	void dae::SceneManager::FixedUpdate(float fixedTimeStep)
+	{
+		for (auto& scene : m_scenes)
+		{
+			if (!scene->IsMarkedForRemoval())
+			{
+				scene->FixedUpdate(fixedTimeStep);
+			}
 		}
 	}
 

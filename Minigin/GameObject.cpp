@@ -15,9 +15,20 @@ void GameObject::Update(float deltaTime)
 		}
 	}
 
-	std::erase_if(m_components, [](const std::unique_ptr<Component>& component) {
+	std::erase_if(m_components, [](const auto& component) {
 		return component->IsMarkedForRemoval();
 		});
+}
+
+void dae::GameObject::FixedUpdate(float fixedTimeStep)
+{
+	for (auto& component : m_components)
+	{
+		if (!component->IsMarkedForRemoval())
+		{
+			component->FixedUpdate(fixedTimeStep);
+		}
+	}
 }
 
 void GameObject::Render() const

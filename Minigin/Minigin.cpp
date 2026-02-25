@@ -2,7 +2,6 @@
 #include <sstream>
 #include <iostream>
 #include <thread>
-#include <chrono>
 
 #if WIN32
 #define WIN32_LEAN_AND_MEAN 
@@ -104,40 +103,31 @@ namespace dae {
 
 	void Minigin::RunOneFrame()
 	{
-		m_quit = !InputManager::GetInstance().ProcessInput();
-
 		using clock = std::chrono::high_resolution_clock;
 		using duration = std::chrono::duration<float>;
 
-		static auto frameStart = clock::now();
-		static float accumulatedTime = 0.f;
-
 		auto now = clock::now();
-		float deltaTime = duration(now - frameStart).count();
-		frameStart = now;
-		const float maxDeltaTime = 0.1f; // 10FPS minimum simulation
+		float deltaTime = duration(now - m_lastTime).count();
+		m_lastTime = now;
 
-		if (m_maxFPS <= 0) //unlimited FPS
+		if (deltaTime > m_maxDeltaTime)
+			deltaTime = m_maxDeltaTime;
+
+		m_quit = !InputManager::GetInstance().ProcessInput();
+
+		m_accumulatedTime += deltaTime;
+		while (m_accumulatedTime >= m_fixedTimeStep)
 		{
-			if (deltaTime > maxDeltaTime) deltaTime = maxDeltaTime;
-			SceneManager::GetInstance().Update(static_cast<float>(deltaTime));
-		}
-		else
-		{
-			const float fixedStep = 1.f / m_maxFPS;
-
-			if (deltaTime > maxDeltaTime) deltaTime = maxDeltaTime;
-			accumulatedTime += deltaTime;
-
-			while (accumulatedTime >= fixedStep)
-			{
-				SceneManager::GetInstance().Update(static_cast<float>(fixedStep));
-				accumulatedTime -= fixedStep;
-			}
-
-			std::this_thread::sleep_until(frameStart + duration{ fixedStep });
+			SceneManager::GetInstance().FixedUpdate(m_fixedTimeStep);
+			m_accumulatedTime -= m_fixedTimeStep;
 		}
 
+		SceneManager::GetInstance().Update(deltaTime);
 		Renderer::GetInstance().Render();
+
+		if (!m_uncappedFPS)
+		{
+			std::this_thread::sleep_until(m_lastTime + duration{ m_fixedTimeStep });
+		}
 	}
 }

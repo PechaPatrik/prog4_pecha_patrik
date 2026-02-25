@@ -19,6 +19,7 @@ namespace dae
 		GameObject& operator=(GameObject&& other) = delete;
 
 		void Update(float deltaTime);
+		void FixedUpdate(float fixedTimeStep);
 		void Render() const;
 
 		void SetTexture(const std::string& filename);

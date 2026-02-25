@@ -15,6 +15,7 @@ namespace dae
 		Component& operator=(Component&& other) = delete;
 
 		virtual void Update(float deltaTime) = 0;
+		virtual void FixedUpdate(float) {}
 		virtual void Render() const {}
 
 		bool IsMarkedForRemoval() const { return m_markedForRemoval; }

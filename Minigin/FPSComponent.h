@@ -25,6 +25,6 @@ namespace dae
 		float m_accumulatedTime{ 0.0f };
 		int m_frameCount{ 0 };
 		float m_currentFPS{ 0.0f };
-		static constexpr float m_updateInterval{ 1.f }; // Update FPS text every second
+		const float m_updateInterval{ 1.f }; // Update FPS text every second
 	};
 }
