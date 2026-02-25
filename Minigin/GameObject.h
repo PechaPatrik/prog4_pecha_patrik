@@ -11,7 +11,7 @@ namespace dae
 	{
 	public:
 		GameObject() = default;
-		~GameObject() = default;
+		~GameObject();
 
 		GameObject(const GameObject& other) = delete;
 		GameObject(GameObject&& other) = delete;
@@ -22,8 +22,15 @@ namespace dae
 		void FixedUpdate(float fixedTimeStep);
 		void Render() const;
 
-		void SetPosition(float x, float y);
-		const glm::vec3& GetPosition() const { return m_transform.GetPosition(); }
+		void SetLocalPosition(float x, float y);
+		void SetLocalPosition(const glm::vec3& pos);
+		const glm::vec3& GetWorldPosition();
+
+		void SetParent(GameObject* pParent, bool keepWorldPosition = false);
+		GameObject* GetParent() const { return m_pParent; }
+
+		size_t GetChildCount() const { return m_children.size(); }
+		GameObject* GetChildAt(int index) const { return m_children[index]; }
 
 		template<typename T, typename... Args>
 		T* AddComponent(Args&&... args)
@@ -75,7 +82,19 @@ namespace dae
 		void MarkForRemoval() { m_markedForRemoval = true; }
 		bool IsMarkedForRemoval() const { return m_markedForRemoval; }
 	private:
-		Transform m_transform{};
+		void UpdateWorldPosition();
+		bool IsChild(GameObject* parent) const;
+		void AddChild(GameObject* child);
+		void RemoveChild(GameObject* child);
+		void SetPositionDirty();
+
+		glm::vec3 m_localPosition{};
+		mutable glm::vec3 m_worldPosition{};
+		mutable bool m_positionIsDirty{ true };
+
+		GameObject* m_pParent{ nullptr };
+		std::vector<GameObject*> m_children{};
+
 		std::vector<std::unique_ptr<Component>> m_components{};
 		bool m_markedForRemoval{ false };
 	};

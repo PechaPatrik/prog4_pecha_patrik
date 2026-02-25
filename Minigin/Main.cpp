@@ -28,7 +28,7 @@ static void load()
 	//Logo
 	auto loGo = std::make_unique<dae::GameObject>();
 	loGo->AddComponent<dae::ImageComponent>("logo.png");
-	loGo->SetPosition(358, 180);
+	loGo->SetLocalPosition(358, 180);
 	scene.Add(std::move(loGo));
 
 	//Title text
