@@ -11,6 +11,7 @@
 #include "TextComponent.h"
 #include "FPSComponent.h"
 #include "ImageComponent.h"
+#include "RotatorComponent.h"
 #include "Scene.h"
 
 #include <filesystem>
@@ -28,7 +29,7 @@ static void load()
 	//Logo
 	auto loGo = std::make_unique<dae::GameObject>();
 	loGo->AddComponent<dae::ImageComponent>("logo.png");
-	loGo->SetLocalPosition(358, 180);
+	loGo->SetLocalPosition(358.f, 180.f);
 	scene.Add(std::move(loGo));
 
 	//Title text
@@ -36,16 +37,29 @@ static void load()
 	auto font = dae::ResourceManager::GetInstance().LoadFont("Lingua.otf", 36);
 	auto tc = titleGo->AddComponent<dae::TextComponent>("Programming 4 Assignment", font);
 	tc->SetColor({ 255, 255, 0, 255 });
-	tc->SetPosition(292, 20);
+	tc->SetPosition(292.f, 20.f);
 	scene.Add(std::move(titleGo));
 
 	//FPS counter
 	auto fpsGo = std::make_unique<dae::GameObject>();
 	auto fpsText = fpsGo->AddComponent<dae::TextComponent>("0 FPS", font);
 	fpsText->SetColor({ 255, 255, 255, 255 });
-	fpsText->SetPosition(10, 10);
+	fpsText->SetPosition(10.f, 10.f);
 	fpsGo->AddComponent<dae::FPSComponent>();
 	scene.Add(std::move(fpsGo));
+
+	//Ugg
+	auto ugGo = std::make_unique<dae::GameObject>();
+	ugGo->AddComponent<dae::ImageComponent>("ugg.png");
+	ugGo->AddComponent<dae::RotatorComponent>(10.f, -10.f, glm::vec2{ 300.f, 300.f });
+
+	//Wrong-way
+	auto wronGo = std::make_unique<dae::GameObject>();
+	wronGo->SetParent(ugGo.get());
+	wronGo->AddComponent<dae::ImageComponent>("wrongway.png");
+	wronGo->AddComponent<dae::RotatorComponent>(40.f, 7.5f, glm::vec2{ 0.f, 0.f }); // center is 0,0 since it's a child of ugg
+	scene.Add(std::move(ugGo));
+	scene.Add(std::move(wronGo));
 }
 
 int main(int, char*[]) {
