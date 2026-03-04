@@ -5,17 +5,6 @@
 
 using namespace dae;
 
-GameObject::~GameObject() 
-{
-	// Detach from parent
-	if (m_pParent) m_pParent->RemoveChild(this);
-	// Detach all children
-	for (auto* child : m_children)
-	{
-		child->m_pParent = nullptr;
-	}
-}
-
 void GameObject::Update(float deltaTime)
 {
 	for (auto& component : m_components)

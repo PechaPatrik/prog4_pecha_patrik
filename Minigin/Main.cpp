@@ -48,16 +48,22 @@ static void load()
 	fpsGo->AddComponent<dae::FPSComponent>();
 	scene.Add(std::move(fpsGo));
 
+	//Position GO around which Ugg rotates
+	auto posGo = std::make_unique<dae::GameObject>();
+	posGo->SetLocalPosition(300.f, 300.f);
+
 	//Ugg
 	auto ugGo = std::make_unique<dae::GameObject>();
+	ugGo->SetParent(posGo.get());
 	ugGo->AddComponent<dae::ImageComponent>("ugg.png");
-	ugGo->AddComponent<dae::RotatorComponent>(10.f, -10.f, glm::vec2{ 300.f, 300.f });
+	ugGo->AddComponent<dae::RotatorComponent>(10.f, -10.f);
 
 	//Wrong-way
 	auto wronGo = std::make_unique<dae::GameObject>();
 	wronGo->SetParent(ugGo.get());
 	wronGo->AddComponent<dae::ImageComponent>("wrongway.png");
-	wronGo->AddComponent<dae::RotatorComponent>(40.f, 7.5f, glm::vec2{ 0.f, 0.f }); // center is 0,0 since it's a child of ugg
+	wronGo->AddComponent<dae::RotatorComponent>(40.f, 7.5f);
+	scene.Add(std::move(posGo));
 	scene.Add(std::move(ugGo));
 	scene.Add(std::move(wronGo));
 }

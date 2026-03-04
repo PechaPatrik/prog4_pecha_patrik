@@ -7,7 +7,7 @@ namespace dae
     class RotatorComponent final : public Component
     {
     public:
-        RotatorComponent(GameObject* pOwner, float radius, float angularSpeed, const glm::vec2& center);
+        RotatorComponent(GameObject* pOwner, float radius, float angularSpeed);
         ~RotatorComponent() override = default;
 
         RotatorComponent(const RotatorComponent& other) = delete;
@@ -21,6 +21,5 @@ namespace dae
         float m_radius{};
         float m_angularSpeed{};
         float m_angle{ 0.f };
-        glm::vec2 m_center{};
     };
 }
