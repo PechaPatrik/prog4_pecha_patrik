@@ -22,7 +22,6 @@ namespace dae
 		bool m_quit{};
 		const float m_maxDeltaTime{ 0.1f };
 		float m_fixedTimeStep{ 1.f / 60.f };
-		bool m_uncappedFPS{ false };
 		float m_accumulatedTime = 0.f;
 		std::chrono::high_resolution_clock::time_point m_lastTime{ std::chrono::high_resolution_clock::now() };
 	};

@@ -124,10 +124,5 @@ namespace dae {
 
 		SceneManager::GetInstance().Update(deltaTime);
 		Renderer::GetInstance().Render();
-
-		if (!m_uncappedFPS)
-		{
-			std::this_thread::sleep_until(m_lastTime + duration{ m_fixedTimeStep });
-		}
 	}
 }
