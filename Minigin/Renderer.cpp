@@ -41,6 +41,10 @@ void dae::Renderer::Render() const
 	ImGui_ImplSDL3_NewFrame();
 	ImGui::NewFrame();
 
+	ImGui::Begin("Thrash The Cache");
+	m_thrashTheCache.Render();
+	ImGui::End();
+
 	ImGui::Render();
 
 	const auto& color = GetBackgroundColor();
