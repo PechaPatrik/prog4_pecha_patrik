@@ -1,5 +1,6 @@
 #include "Controller.h"
 
+#ifndef __EMSCRIPTEN__
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 #include <Xinput.h>
@@ -69,3 +70,20 @@ namespace dae
 		return m_pImpl->IsPressed(static_cast<unsigned int>(button));
 	}
 }
+
+#else
+
+namespace dae
+{
+	class Controller::ControllerImpl {};
+
+	Controller::Controller(unsigned int) : m_pImpl(std::make_unique<ControllerImpl>()) {}
+	Controller::~Controller() = default;
+
+	void Controller::Update() {}
+	bool Controller::IsDown(Button) const { return false; }
+	bool Controller::IsUp(Button) const { return false; }
+	bool Controller::IsPressed(Button) const { return false; }
+}
+
+#endif
