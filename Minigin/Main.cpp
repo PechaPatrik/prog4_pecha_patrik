@@ -13,6 +13,10 @@
 #include "ImageComponent.h"
 #include "RotatorComponent.h"
 #include "TTCComponent.h"
+#include "InputManager.h"
+#include "MoveComponent.h"
+#include "MoveCommand.h"
+#include "Controller.h"
 #include "Scene.h"
 
 #include <filesystem>
@@ -49,29 +53,53 @@ static void load()
 	fpsGo->AddComponent<dae::FPSComponent>();
 	scene.Add(std::move(fpsGo));
 
-	//Position GO around which Ugg rotates
-	auto posGo = std::make_unique<dae::GameObject>();
-	posGo->SetLocalPosition(300.f, 300.f);
+	//Controls
+	auto controlsGo = std::make_unique<dae::GameObject>();
+	font = dae::ResourceManager::GetInstance().LoadFont("Lingua.otf", 18);
+	auto cc1 = controlsGo->AddComponent<dae::TextComponent>("Use WASD to move Ugg", font);
+	cc1->SetColor({ 255, 255, 255, 255 });
+	cc1->SetPosition(10.f, 100.f);
+	auto cc2 = controlsGo->AddComponent<dae::TextComponent>("Use D-Pad to move Wrong-way", font);
+	cc2->SetColor({ 255, 255, 255, 255 });
+	cc2->SetPosition(10.f, 120.f);
+	scene.Add(std::move(controlsGo));
 
 	//Ugg
-	auto ugGo = std::make_unique<dae::GameObject>();
-	ugGo->SetParent(posGo.get());
-	ugGo->AddComponent<dae::ImageComponent>("ugg.png");
-	ugGo->AddComponent<dae::RotatorComponent>(10.f, -10.f);
+	auto uggGo = std::make_unique<dae::GameObject>();
+	uggGo->SetLocalPosition(300.f, 300.f);
+	uggGo->AddComponent<dae::ImageComponent>("ugg.png");
+	auto* uggMove = uggGo->AddComponent<dae::MoveComponent>(100.f);
+
+	auto& input = dae::InputManager::GetInstance();
+
+	input.BindKeyboardCommand(SDL_SCANCODE_W, dae::Controller::KeyState::Pressed,
+		std::make_unique<dae::MoveCommand>(uggMove, glm::vec2{ 0.f, -1.f }));
+	input.BindKeyboardCommand(SDL_SCANCODE_S, dae::Controller::KeyState::Pressed,
+		std::make_unique<dae::MoveCommand>(uggMove, glm::vec2{ 0.f,  1.f }));
+	input.BindKeyboardCommand(SDL_SCANCODE_A, dae::Controller::KeyState::Pressed,
+		std::make_unique<dae::MoveCommand>(uggMove, glm::vec2{ -1.f, 0.f }));
+	input.BindKeyboardCommand(SDL_SCANCODE_D, dae::Controller::KeyState::Pressed,
+		std::make_unique<dae::MoveCommand>(uggMove, glm::vec2{ 1.f, 0.f }));
+
+	scene.Add(std::move(uggGo));
+
 
 	//Wrong-way
-	auto wronGo = std::make_unique<dae::GameObject>();
-	wronGo->SetParent(ugGo.get());
-	wronGo->AddComponent<dae::ImageComponent>("wrongway.png");
-	wronGo->AddComponent<dae::RotatorComponent>(40.f, 7.5f);
-	scene.Add(std::move(posGo));
-	scene.Add(std::move(ugGo));
-	scene.Add(std::move(wronGo));
+	auto wrongGo = std::make_unique<dae::GameObject>();
+	wrongGo->SetLocalPosition(400.f, 300.f);
+	wrongGo->AddComponent<dae::ImageComponent>("wrongway.png");
+	auto* wrongMove = wrongGo->AddComponent<dae::MoveComponent>(200.f);
 
-	//Thrash the cache
-	auto cacheGo = std::make_unique<dae::GameObject>();
-	cacheGo->AddComponent<dae::ThrashTheCacheComponent>();
-	scene.Add(std::move(cacheGo));
+	input.BindControllerCommand(0, dae::Controller::Button::DPadUp, dae::Controller::KeyState::Pressed,
+		std::make_unique<dae::MoveCommand>(wrongMove, glm::vec2{ 0.f, -1.f }));
+	input.BindControllerCommand(0, dae::Controller::Button::DPadDown, dae::Controller::KeyState::Pressed,
+		std::make_unique<dae::MoveCommand>(wrongMove, glm::vec2{ 0.f,  1.f }));
+	input.BindControllerCommand(0, dae::Controller::Button::DPadLeft, dae::Controller::KeyState::Pressed,
+		std::make_unique<dae::MoveCommand>(wrongMove, glm::vec2{ -1.f, 0.f }));
+	input.BindControllerCommand(0, dae::Controller::Button::DPadRight, dae::Controller::KeyState::Pressed,
+		std::make_unique<dae::MoveCommand>(wrongMove, glm::vec2{ 1.f, 0.f }));
+
+	scene.Add(std::move(wrongGo));
 }
 
 int main(int, char*[]) {
