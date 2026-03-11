@@ -133,6 +133,79 @@ void ThrashTheCache::DrawResults(const ExerciseResults& res, unsigned int color,
     }
 }
 
+void ThrashTheCache::DrawCombinedResults(const ExerciseResults& resA, unsigned int colorA, const ExerciseResults& resB, unsigned int colorB, const char* tableId)
+{
+    if (resA.timings_us.empty() || resB.timings_us.empty()) return;
+
+    const float maxA = *std::max_element(resA.timings_us.begin(), resA.timings_us.end());
+    const float maxB = *std::max_element(resB.timings_us.begin(), resB.timings_us.end());
+    float maxVal = std::max(maxA, maxB);
+    if (maxVal <= 0.f) maxVal = 1.f;
+
+    constexpr ImVec2 plotSize{ 380.f, 140.f };
+    const ImVec2 origin = ImGui::GetCursorScreenPos();
+    const float  bottomY = origin.y + plotSize.y;
+    ImDrawList* dl = ImGui::GetWindowDrawList();
+
+    dl->AddRectFilled(origin, { origin.x + plotSize.x, bottomY }, IM_COL32(20, 20, 20, 255));
+    dl->AddRect(origin, { origin.x + plotSize.x, bottomY }, IM_COL32(100, 100, 100, 255));
+
+    const int   n = static_cast<int>(resA.timings_us.size());
+    const float barW = plotSize.x / static_cast<float>(n);
+
+    for (int i = 0; i < n; ++i)
+    {
+        const float halfW = barW * 0.5f;
+        const float xBase = origin.x + i * barW;
+
+        const float barHA = (resA.timings_us[i] / maxVal) * plotSize.y;
+        dl->AddRectFilled({ xBase + 1.f,         bottomY - barHA },
+            { xBase + halfW - 1.f,  bottomY }, colorA);
+
+        if (i < static_cast<int>(resB.timings_us.size()))
+        {
+            const float barHB = (resB.timings_us[i] / maxVal) * plotSize.y;
+            dl->AddRectFilled({ xBase + halfW + 1.f, bottomY - barHB },
+                { xBase + barW - 1.f,  bottomY }, colorB);
+        }
+
+        if (i % 2 == 0)
+        {
+            char label[8];
+            snprintf(label, sizeof(label), "%d", resA.stepSizes[i]);
+            dl->AddText({ xBase + 1.f, bottomY + 2.f }, IM_COL32(180, 180, 180, 255), label);
+        }
+    }
+
+    ImGui::Dummy({ plotSize.x, plotSize.y + 18.f });
+
+    ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(colorA), "GameObject3D");
+    ImGui::SameLine();
+    ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(colorB), "  GameObject3DAlt");
+
+    ImGui::Spacing();
+    if (ImGui::BeginTable(tableId, 3,
+        ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingFixedFit))
+    {
+        ImGui::TableSetupColumn("Step size");
+        ImGui::TableSetupColumn("GO3D (us)");
+        ImGui::TableSetupColumn("GO3DAlt (us)");
+        ImGui::TableHeadersRow();
+
+        for (int i = 0; i < n; ++i)
+        {
+            ImGui::TableNextRow();
+            ImGui::TableSetColumnIndex(0); ImGui::Text("%d", resA.stepSizes[i]);
+            ImGui::TableSetColumnIndex(1); ImGui::Text("%.2f", resA.timings_us[i]);
+            ImGui::TableSetColumnIndex(2);
+            if (i < static_cast<int>(resB.timings_us.size()))
+                ImGui::Text("%.2f", resB.timings_us[i]);
+        }
+
+        ImGui::EndTable();
+    }
+}
+
 void ThrashTheCache::SamplesInput(const char* id, int& samples)
 {
     char buf[32];
@@ -205,6 +278,16 @@ void ThrashTheCache::Render() const
             ImGui::Spacing();
             ImGui::Text("GameObject3DAlt");
             DrawResults(m_ex2Alt.results, IM_COL32(51, 255, 102, 255), "table_ex2alt");
+        }
+
+        if (m_ex2.hasResults && m_ex2Alt.hasResults)
+        {
+            ImGui::Spacing();
+            ImGui::Text("Combined");
+            DrawCombinedResults(
+                m_ex2.results, IM_COL32(255, 102, 51, 255),
+                m_ex2Alt.results, IM_COL32(51, 255, 102, 255),
+                "table_ex2combined");
         }
     }
 }

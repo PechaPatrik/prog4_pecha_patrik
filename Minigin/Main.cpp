@@ -12,6 +12,7 @@
 #include "FPSComponent.h"
 #include "ImageComponent.h"
 #include "RotatorComponent.h"
+#include "TTCComponent.h"
 #include "Scene.h"
 
 #include <filesystem>
@@ -66,6 +67,11 @@ static void load()
 	scene.Add(std::move(posGo));
 	scene.Add(std::move(ugGo));
 	scene.Add(std::move(wronGo));
+
+	//Thrash the cache
+	auto cacheGo = std::make_unique<dae::GameObject>();
+	cacheGo->AddComponent<dae::ThrashTheCacheComponent>();
+	scene.Add(std::move(cacheGo));
 }
 
 int main(int, char*[]) {

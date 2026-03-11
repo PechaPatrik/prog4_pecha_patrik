@@ -55,6 +55,7 @@ private:
     static ExerciseResults RunExercise2Alt(int numSamples);
 
     static void DrawResults(const ExerciseResults& res, unsigned int color, const char* tableId);
+    static void DrawCombinedResults(const ExerciseResults& resA, unsigned int colorA, const ExerciseResults& resB, unsigned int colorB, const char* tableId);
     static void SamplesInput(const char* id, int& samples);
 
     mutable ExerciseState m_ex1{};
