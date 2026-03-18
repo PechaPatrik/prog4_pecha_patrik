@@ -17,6 +17,10 @@
 #include "Renderer.h"
 #include "ResourceManager.h"
 
+#ifdef USE_STEAMWORKS
+#include <steam_api.h>
+#endif
+
 SDL_Window* g_window{};
 
 void LogSDLVersion(const std::string& message, int major, int minor, int patch)
@@ -124,5 +128,9 @@ namespace dae {
 
 		SceneManager::GetInstance().Update(deltaTime);
 		Renderer::GetInstance().Render();
+
+#ifdef USE_STEAMWORKS
+		SteamAPI_RunCallbacks();
+#endif
 	}
 }
