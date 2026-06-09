@@ -55,7 +55,7 @@ jobs:
       - name: Prepare Artifact
         run: |
           mkdir -p dist
-          cp build-web/minigin_web.* dist/
+          find build-web -name "minigin_web.*" -exec cp {} dist/ \;
           cp web/*.html dist/
 
       - name: Upload Pages Artifact
