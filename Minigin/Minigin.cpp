@@ -11,6 +11,7 @@
 #include <SDL3/SDL.h>
 //#include <SDL3_image/SDL_image.h>
 #include <SDL3_ttf/SDL_ttf.h>
+#include <SDL3_mixer/SDL_mixer.h>
 #include "Minigin.h"
 #include "InputManager.h"
 #include "SceneManager.h"
@@ -56,7 +57,9 @@ void PrintSDLVersion()
 	// LogSDLVersion("Linked with SDL_image ", SDL_VERSIONNUM_MAJOR(version), SDL_VERSIONNUM_MINOR(version), SDL_VERSIONNUM_MICRO(version));
 	LogSDLVersion("Compiled with SDL_ttf ",	SDL_TTF_MAJOR_VERSION, SDL_TTF_MINOR_VERSION,SDL_TTF_MICRO_VERSION);
 	version = TTF_Version();
-	LogSDLVersion("Linked with SDL_ttf ", SDL_VERSIONNUM_MAJOR(version), SDL_VERSIONNUM_MINOR(version),	SDL_VERSIONNUM_MICRO(version));
+	LogSDLVersion("Linked with SDL_ttf ", SDL_VERSIONNUM_MAJOR(version), SDL_VERSIONNUM_MINOR(version), SDL_VERSIONNUM_MICRO(version));
+	version = MIX_Version();
+	LogSDLVersion("Linked with SDL_mixer ", SDL_VERSIONNUM_MAJOR(version), SDL_VERSIONNUM_MINOR(version), SDL_VERSIONNUM_MICRO(version));
 }
 
 namespace dae {
@@ -68,6 +71,13 @@ namespace dae {
 		{
 			SDL_Log("Renderer error: %s", SDL_GetError());
 			throw std::runtime_error(std::string("SDL_Init Error: ") + SDL_GetError());
+		}
+
+		// Initialize audio subsystem for SDL_mixer
+		if (!SDL_InitSubSystem(SDL_INIT_AUDIO))
+		{
+			SDL_Log("Audio error: %s", SDL_GetError());
+			throw std::runtime_error(std::string("SDL_Init Audio Error: ") + SDL_GetError());
 		}
 
 		g_window = SDL_CreateWindow(

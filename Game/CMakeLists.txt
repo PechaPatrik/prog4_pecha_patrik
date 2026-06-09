@@ -61,6 +61,11 @@ elseif(WIN32)
     VERBATIM
   )
 
+  add_custom_command(TARGET ${TARGET_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different 
+      "$<TARGET_FILE:SDL3_mixer::SDL3_mixer>"
+      "$<TARGET_FILE_DIR:${TARGET_NAME}>" VERBATIM)
+
   if(Steamworks_FOUND)
     target_link_libraries(${TARGET_NAME} PRIVATE Steamworks::Steamworks)
     target_compile_definitions(${TARGET_NAME} PRIVATE USE_STEAMWORKS)

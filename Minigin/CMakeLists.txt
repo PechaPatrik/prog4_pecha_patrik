@@ -17,6 +17,8 @@ add_library(minigin STATIC
   ThrashTheCache.cpp
   MoveComponent.cpp
   Controller.cpp
+  ServiceLocator.cpp
+  SDLSoundSystem.cpp
 )
 
 target_compile_features(minigin PUBLIC cxx_std_20)
@@ -30,6 +32,7 @@ target_include_directories(minigin PUBLIC
 target_link_libraries(minigin PUBLIC
   SDL3::SDL3
   SDL3_ttf::SDL3_ttf
+  SDL3_mixer::SDL3_mixer
   glm::glm
   imgui
   ${VLD_LIBRARIES}

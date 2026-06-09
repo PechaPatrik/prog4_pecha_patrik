@@ -11,8 +11,6 @@
 #include "TextComponent.h"
 #include "FPSComponent.h"
 #include "ImageComponent.h"
-#include "RotatorComponent.h"
-#include "TTCComponent.h"
 #include "InputManager.h"
 #include "MoveComponent.h"
 #include "MoveCommand.h"
@@ -24,6 +22,9 @@
 #include "Scene.h"
 
 #include "SteamObserver.h"
+#include "ServiceLocator.h"
+#include "SDLSoundSystem.h"
+#include "LoggingSoundSystem.h"
 
 #ifdef USE_STEAMWORKS
 #include <steam_api.h>
@@ -180,7 +181,20 @@ int main(int, char*[]) {
 		data_location = "../Data/";
 #endif
 	dae::Minigin engine(data_location);
+
+#if _DEBUG
+	dae::ServiceLocator::RegisterSoundSystem(
+		std::make_unique<dae::LoggingSoundSystem>(
+			std::make_unique<dae::SDLSoundSystem>(data_location.string())));
+#else
+	dae::ServiceLocator::RegisterSoundSystem(
+		std::make_unique<dae::SDLSoundSystem>(data_location.string()));
+#endif
+
 	engine.Run(load);
+
+	dae::ServiceLocator::RegisterSoundSystem(nullptr);
+
 #ifdef USE_STEAMWORKS
 	SteamAPI_Shutdown();
 #endif
