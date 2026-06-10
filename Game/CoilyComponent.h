@@ -4,12 +4,13 @@
 #include "CoilyState.h"
 #include "SpritesheetComponent.h"
 #include "QbertPyramid.h"
+#include "QbertPlayerComponent.h"
 #include <memory>
 #include <cmath>
 
 namespace dae
 {
-    static constexpr float COILY_ARC_HEIGHT = 24.f * PIXEL_SCALE;
+    static constexpr float COILY_ARC_HEIGHT = 12.f * PIXEL_SCALE;
 
     class CoilyComponent final : public Component
     {
@@ -75,6 +76,8 @@ namespace dae
             m_hopping = true;
         }
 
+        void SetQbert(QbertPlayerComponent* qbert) { m_qbert = qbert; }
+
         bool IsHopping() const { return m_hopping; }
 
         int GetGridRow() const { return m_gridRow; }
@@ -82,17 +85,8 @@ namespace dae
 
         bool IsEgg() const { return m_state->IsEgg(); }
 
-        void SetTargetGridPosition(int row, int col)
-        {
-            m_targetRow = row;
-            m_targetCol = col;
-        }
-
-        int GetTargetRow() const { return m_targetRow; }
-        int GetTargetCol() const { return m_targetCol; }
-
-        void SetLastMoveDirection(int dir) { m_lastMoveDir = dir; }
-        int GetLastMoveDirection() const { return m_lastMoveDir; }
+        int GetTargetRow() const { return m_qbert ? m_qbert->GetGridRow() : 0; }
+        int GetTargetCol() const { return m_qbert ? m_qbert->GetGridCol() : 0; }
 
     private:
         void ApplyArcPosition(float t)
@@ -111,6 +105,8 @@ namespace dae
                 sheet->SetFrame(m_state->GetCol(m_hopping), 0);
         }
 
+        QbertPlayerComponent* m_qbert{ nullptr };
+
         std::unique_ptr<CoilyBaseState> m_state;
         int m_gridRow;
         int m_gridCol;
@@ -122,9 +118,5 @@ namespace dae
         glm::vec2 m_toPos{ 0.f, 0.f };
         int m_destRow{ 0 };
         int m_destCol{ 0 };
-
-        int m_targetRow{ 0 };
-        int m_targetCol{ 0 };
-        int m_lastMoveDir{ 2 };
     };
 }

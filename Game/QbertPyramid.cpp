@@ -24,10 +24,9 @@ namespace dae
                 glm::vec2 pos = GridToScreen(row, col);
                 go->SetLocalPosition(pos.x, pos.y);
 
-                go->AddComponent<SpritesheetComponent>("Qbert Cubes.png", CUBE_SRC_W, CUBE_SRC_H, PIXEL_SCALE);
+                go->AddComponent<SpritesheetComponent>("Qbert Cubes.png", CUBE_SRC_W, CUBE_SRC_H);
                 auto* cube = go->AddComponent<CubeComponent>(levelData.rule, colorColumn);
-                // Initialize sprite to untouched state (row 0)
-                go->GetComponent<SpritesheetComponent>()->SetFrame(colorColumn, 0);
+                go->GetComponent<SpritesheetComponent>()->SetFrame(colorColumn);
                 (void)cube;
 
                 grid.cubes[row][col] = go.get();

@@ -4,6 +4,7 @@
 #include "ResourceManager.h"
 #include "Renderer.h"
 #include "Texture2D.h"
+#include "GameScale.h"
 #include <string>
 #include <memory>
 
@@ -12,13 +13,11 @@ namespace dae
     class SpritesheetComponent final : public Component
     {
     public:
-        SpritesheetComponent(GameObject* pOwner, const std::string& filename, int frameWidth, int frameHeight, float scale = 1.f)
+        SpritesheetComponent(GameObject* pOwner, const std::string& filename, int frameWidth, int frameHeight, float scale = PIXEL_SCALE)
             : Component(pOwner)
             , m_frameWidth(frameWidth)
             , m_frameHeight(frameHeight)
             , m_scale(scale)
-            , m_col(0)
-            , m_row(0)
         {
             m_texture = ResourceManager::GetInstance().LoadTexture(filename);
         }
@@ -36,32 +35,18 @@ namespace dae
         {
             if (!m_texture) return;
             const auto& pos = GetOwner()->GetWorldPosition();
-            if (m_scale == 1.f)
-            {
-                Renderer::GetInstance().RenderTextureSrc(
-                    *m_texture,
-                    pos.x, pos.y,
-                    m_col * m_frameWidth,
-                    m_row * m_frameHeight,
-                    m_frameWidth,
-                    m_frameHeight
-                );
-            }
-            else
-            {
-                Renderer::GetInstance().RenderTextureSrcScaled(
-                    *m_texture,
-                    pos.x, pos.y,
-                    m_col * m_frameWidth,
-                    m_row * m_frameHeight,
-                    m_frameWidth,
-                    m_frameHeight,
-                    m_scale
-                );
-            }
+            Renderer::GetInstance().RenderTextureSrcScaled(
+                *m_texture,
+                pos.x, pos.y,
+                m_col * m_frameWidth,
+                m_row * m_frameHeight,
+                m_frameWidth,
+                m_frameHeight,
+                m_scale
+            );
         }
 
-        void SetFrame(int col, int row)
+        void SetFrame(int col, int row = 0)
         {
             m_col = col;
             m_row = row;
@@ -76,7 +61,7 @@ namespace dae
         int m_frameWidth;
         int m_frameHeight;
         float m_scale;
-        int m_col;
-        int m_row;
+        int m_col{ 0 };
+        int m_row{ 0 };
     };
 }

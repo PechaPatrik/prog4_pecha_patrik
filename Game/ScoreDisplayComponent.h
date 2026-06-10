@@ -9,7 +9,7 @@ namespace dae
     class ScoreDisplayComponent final : public Component, public IObserver
     {
     public:
-        ScoreDisplayComponent(GameObject* pOwner, int playerIndex)
+        ScoreDisplayComponent(GameObject* pOwner, int playerIndex = 0)
             : Component(pOwner)
             , m_playerIndex(playerIndex)
             , m_score(0)
@@ -20,7 +20,7 @@ namespace dae
         {
             if (!m_dirty) return;
             if (auto* tc = GetOwner()->GetComponent<TextComponent>())
-                tc->SetText("P" + std::to_string(m_playerIndex + 1) + " Score: " + std::to_string(m_score));
+                tc->SetText(std::to_string(m_score));
             m_dirty = false;
         }
 

@@ -25,6 +25,9 @@
 #include "LoggingSoundSystem.h"
 #include "SoundId.h"
 #include "Command.h"
+#include "ScoreDisplayComponent.h"
+#include "LivesDisplayComponent.h"
+#include "ImageComponent.h"
 
 #include <filesystem>
 #include <array>
@@ -38,6 +41,7 @@ static constexpr int COILY_SRC_H = 32;
 
 static int g_currentLevel = 0;
 static fs::path g_dataLocation;
+static dae::PyramidGrid g_pyramidGrid;
 
 static const std::array<const char*, LEVEL_COUNT> LEVEL_FILES =
 {
@@ -66,10 +70,6 @@ static void LoadLevel(int levelIndex)
     auto& sceneManager = dae::SceneManager::GetInstance();
     auto& input = dae::InputManager::GetInstance();
 
-    // Tear down existing scene and gameplay bindings
-    // The scene manager removes scenes marked for removal on next Update,
-    // so mark all current scenes and create a fresh one immediately.
-    // Gameplay bindings reference old component pointers so unbind them first.
     input.UnbindKeyboardCommand(SDL_SCANCODE_W, dae::Controller::KeyState::Down);
     input.UnbindKeyboardCommand(SDL_SCANCODE_A, dae::Controller::KeyState::Down);
     input.UnbindKeyboardCommand(SDL_SCANCODE_D, dae::Controller::KeyState::Down);
@@ -79,13 +79,9 @@ static void LoadLevel(int levelIndex)
     input.UnbindControllerCommand(0, dae::Controller::Button::DPadRight, dae::Controller::KeyState::Down);
     input.UnbindControllerCommand(0, dae::Controller::Button::DPadDown, dae::Controller::KeyState::Down);
 
-    // Mark old scenes for removal (cleaned up at start of next Update)
-    // We create the new scene immediately so it is ready this frame.
-    // SceneManager iterates all scenes each frame, so old ones are gone next tick.
     sceneManager.MarkAllScenesForRemoval();
     auto& scene = sceneManager.CreateScene();
 
-    // FPS counter
     auto fpsGo = std::make_unique<dae::GameObject>();
     auto font = dae::ResourceManager::GetInstance().LoadFont("Lingua.otf", 18);
     auto* fpsText = fpsGo->AddComponent<dae::TextComponent>("0 FPS", font);
@@ -96,21 +92,99 @@ static void LoadLevel(int levelIndex)
 
     dae::LevelData levelData = dae::LoadLevelData((g_dataLocation / LEVEL_FILES[levelIndex]).string());
 
-    dae::PyramidGrid grid = dae::BuildPyramid(scene, levelData, 0);
-    (void)grid;
+    auto mcFont = dae::ResourceManager::GetInstance().LoadFont("Minecraft.ttf", 32);
+    auto mcFontSmall = dae::ResourceManager::GetInstance().LoadFont("Minecraft.ttf", 24);
+
+    auto titleGo = std::make_unique<dae::GameObject>();
+    titleGo->SetLocalPosition(10.f, 40.f);
+    auto* titleSheet = titleGo->AddComponent<dae::SpritesheetComponent>("Player Titles.png", 65, 11);
+    float titleH = titleSheet->GetFrameHeight() * dae::PIXEL_SCALE;
+    scene.Add(std::move(titleGo));
+
+    float scoreY = 40.f + titleH + 4.f;
+
+    auto scoreGo = std::make_unique<dae::GameObject>();
+    auto* scoreText = scoreGo->AddComponent<dae::TextComponent>("0", mcFont);
+    scoreText->SetColor({ 255, 165, 0, 255 });
+    scoreText->SetPosition(10.f, scoreY);
+    auto* scoreObs = scoreGo->AddComponent<dae::ScoreDisplayComponent>();
+    scene.Add(std::move(scoreGo));
+
+    float changeY = scoreY + 48.f;
+
+    auto changeLabelGo = std::make_unique<dae::GameObject>();
+    auto* changeText = changeLabelGo->AddComponent<dae::TextComponent>("CHANGE TO:", mcFontSmall);
+    changeText->SetColor({ 220, 30, 30, 255 });
+    changeText->SetPosition(10.f, changeY);
+    scene.Add(std::move(changeLabelGo));
+
+    auto iconGo = std::make_unique<dae::GameObject>();
+    iconGo->SetLocalPosition(10.f + 172.f, changeY - 8.f);
+    auto* iconSheet = iconGo->AddComponent<dae::SpritesheetComponent>("Color Icons Spritesheet.png", 14, 12);
+    iconSheet->SetFrame(levelData.roundColorColumns[0], 1);
+    scene.Add(std::move(iconGo));
+
+    float rightX = dae::WINDOW_W - 200.f;
+    auto levelLabelGo = std::make_unique<dae::GameObject>();
+    auto* levelLabelText = levelLabelGo->AddComponent<dae::TextComponent>("LEVEL:", mcFontSmall);
+    levelLabelText->SetColor({ 30, 200, 30, 255 });
+    levelLabelText->SetPosition(rightX, 80.f);
+    scene.Add(std::move(levelLabelGo));
+
+    auto levelNumGo = std::make_unique<dae::GameObject>();
+    auto* levelNumText = levelNumGo->AddComponent<dae::TextComponent>(std::to_string(levelIndex + 1), mcFontSmall);
+    levelNumText->SetColor({ 255, 165, 0, 255 });
+    levelNumText->SetPosition(rightX + 110.f, 80.f);
+    scene.Add(std::move(levelNumGo));
+
+    auto roundLabelGo = std::make_unique<dae::GameObject>();
+    auto* roundLabelText = roundLabelGo->AddComponent<dae::TextComponent>("ROUND:", mcFontSmall);
+    roundLabelText->SetColor({ 255, 105, 180, 255 });
+    roundLabelText->SetPosition(rightX, 80.f + 28.f);
+    scene.Add(std::move(roundLabelGo));
+
+    auto roundNumGo = std::make_unique<dae::GameObject>();
+    auto* roundNumText = roundNumGo->AddComponent<dae::TextComponent>("1", mcFontSmall);
+    roundNumText->SetColor({ 255, 165, 0, 255 });
+    roundNumText->SetPosition(rightX + 110.f, 80.f + 28.f);
+    scene.Add(std::move(roundNumGo));
+
+    // Heart.png is 28x28 source; rendered at PIXEL_SCALE
+    static constexpr float HEART_SRC_SIZE = 14.f;
+    float heartRenderedH = HEART_SRC_SIZE * dae::PIXEL_SCALE;
+    float heartStartY = changeY + 48.f;
+
+    auto livesGo = std::make_unique<dae::GameObject>();
+    auto* livesDisplay = livesGo->AddComponent<dae::LivesDisplayComponent>(3);
+    scene.Add(std::move(livesGo));
+
+    for (int i = 0; i < dae::MAX_LIVES; ++i)
+    {
+        auto heartGo = std::make_unique<dae::GameObject>();
+        heartGo->SetLocalPosition(10.f, heartStartY + i * (heartRenderedH + 4.f));
+        auto* heart = heartGo->AddComponent<dae::ImageComponent>("Heart.png", dae::PIXEL_SCALE);
+        livesDisplay->SetHeart(i, heart);
+        scene.Add(std::move(heartGo));
+    }
+
+    g_pyramidGrid = dae::BuildPyramid(scene, levelData, 0);
 
     auto qbertGo = std::make_unique<dae::GameObject>();
     glm::vec2 startPos = dae::GridToCharacterPos(0, 0, QBERT_SRC_W, QBERT_SRC_H);
     qbertGo->SetLocalPosition(startPos.x, startPos.y);
-    qbertGo->AddComponent<dae::SpritesheetComponent>("Qbert P1 Spritesheet.png", QBERT_SRC_W, QBERT_SRC_H, dae::PIXEL_SCALE);
-    auto* qbert = qbertGo->AddComponent<dae::QbertPlayerComponent>(0, 0, 3);
+    qbertGo->AddComponent<dae::SpritesheetComponent>("Qbert P1 Spritesheet.png", QBERT_SRC_W, QBERT_SRC_H);
+    auto* qbert = qbertGo->AddComponent<dae::QbertPlayerComponent>();
+    qbert->SetPyramidGrid(&g_pyramidGrid);
+    qbert->AddObserver(scoreObs);
+    qbert->AddObserver(livesDisplay);
     scene.Add(std::move(qbertGo));
 
     auto coilyGo = std::make_unique<dae::GameObject>();
     glm::vec2 coilyPos = dae::GridToCharacterPos(0, 0, COILY_SRC_W, COILY_SRC_H);
     coilyGo->SetLocalPosition(coilyPos.x, coilyPos.y);
-    coilyGo->AddComponent<dae::SpritesheetComponent>("Coily Spritesheet.png", COILY_SRC_W, COILY_SRC_H, dae::PIXEL_SCALE);
-    coilyGo->AddComponent<dae::CoilyComponent>(1.f / levelData.enemyMoveSpeed);
+    coilyGo->AddComponent<dae::SpritesheetComponent>("Coily Spritesheet.png", COILY_SRC_W, COILY_SRC_H);
+    auto* coily = coilyGo->AddComponent<dae::CoilyComponent>(1.f / levelData.enemyMoveSpeed);
+    coily->SetQbert(qbert);
     scene.Add(std::move(coilyGo));
 
     input.BindKeyboardCommand(SDL_SCANCODE_W, dae::Controller::KeyState::Down,

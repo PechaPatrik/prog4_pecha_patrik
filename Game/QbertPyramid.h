@@ -1,4 +1,5 @@
 #pragma once
+#include "GameScale.h"
 #include "LevelData.h"
 #include "CubeComponent.h"
 #include "GameObject.h"
@@ -10,7 +11,6 @@ namespace dae
 
     // At 3x scale (original 256x240 -> 768x720)
     // can't just make constexpr in minigin and pass because of SIOF
-    static constexpr float PIXEL_SCALE = 3.f;
     static constexpr int WINDOW_W = 768;
     static constexpr int WINDOW_H = 720;
     static constexpr int PYRAMID_ROWS = 7;

@@ -86,7 +86,6 @@ namespace dae
         if (bestDir == -1) return nullptr;
 
         m_direction = bestDir;
-        coily.SetLastMoveDirection(bestDir);
         coily.BeginHop(row + dRow[bestDir], col + dCol[bestDir], m_hopInterval);
 
         return nullptr;
