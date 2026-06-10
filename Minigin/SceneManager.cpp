@@ -41,5 +41,10 @@ namespace dae {
 		m_scenes.emplace_back(new Scene());
 		return *m_scenes.back();
 	}
-}
 
+	void SceneManager::MarkAllScenesForRemoval()
+	{
+		for (auto& scene : m_scenes)
+			scene->MarkForRemoval();
+	}
+}

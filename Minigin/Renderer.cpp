@@ -85,3 +85,35 @@ void dae::Renderer::RenderTexture(const Texture2D& texture, const float x, const
 }
 
 SDL_Renderer* dae::Renderer::GetSDLRenderer() const { return m_renderer; }
+
+void dae::Renderer::RenderTextureSrc(const Texture2D& texture, float x, float y, int srcX, int srcY, int srcW, int srcH) const
+{
+	SDL_FRect src{};
+	src.x = static_cast<float>(srcX);
+	src.y = static_cast<float>(srcY);
+	src.w = static_cast<float>(srcW);
+	src.h = static_cast<float>(srcH);
+	SDL_FRect dst{};
+	dst.x = x;
+	dst.y = y;
+	dst.w = static_cast<float>(srcW);
+	dst.h = static_cast<float>(srcH);
+	SDL_RenderTexture(GetSDLRenderer(), texture.GetSDLTexture(), &src, &dst);
+}
+
+void dae::Renderer::RenderTextureSrcScaled(const Texture2D& texture, float x, float y, int srcX, int srcY, int srcW, int srcH, float scale) const
+{
+	// 0.5px inset on source rect prevents texture bleeding
+	static constexpr float INSET = 0.5f;
+	SDL_FRect src{};
+	src.x = static_cast<float>(srcX) + INSET;
+	src.y = static_cast<float>(srcY) + INSET;
+	src.w = static_cast<float>(srcW) - INSET * 2.f;
+	src.h = static_cast<float>(srcH) - INSET * 2.f;
+	SDL_FRect dst{};
+	dst.x = x;
+	dst.y = y;
+	dst.w = static_cast<float>(srcW) * scale;
+	dst.h = static_cast<float>(srcH) * scale;
+	SDL_RenderTexture(GetSDLRenderer(), texture.GetSDLTexture(), &src, &dst);
+}

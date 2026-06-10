@@ -1,14 +1,13 @@
 #pragma once
 #include "ISoundSystem.h"
 #include <memory>
-#include <string>
 
 namespace dae
 {
     class SDLSoundSystem final : public ISoundSystem
     {
     public:
-        explicit SDLSoundSystem(const std::string& dataPath);
+        SDLSoundSystem();
         ~SDLSoundSystem() override;
 
         SDLSoundSystem(const SDLSoundSystem&) = delete;
@@ -16,6 +15,7 @@ namespace dae
         SDLSoundSystem& operator=(const SDLSoundSystem&) = delete;
         SDLSoundSystem& operator=(SDLSoundSystem&&) = delete;
 
+        void RegisterSound(SoundId id, const std::string& filePath) override;
         void PlaySound(SoundId id, int volume = 128) override;
 
     private:

@@ -12,6 +12,7 @@ namespace dae
 	{
 	public:
 		Scene& CreateScene();
+		void MarkAllScenesForRemoval();
 
 		void Update(float deltaTime);
 		void FixedUpdate(float fixedTimeStep);

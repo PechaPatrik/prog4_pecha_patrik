@@ -8,195 +8,161 @@
 #include "Minigin.h"
 #include "SceneManager.h"
 #include "ResourceManager.h"
-#include "TextComponent.h"
-#include "FPSComponent.h"
-#include "ImageComponent.h"
 #include "InputManager.h"
-#include "MoveComponent.h"
-#include "MoveCommand.h"
 #include "Controller.h"
-#include "PlayerComponent.h"
-#include "LivesDisplayComponent.h"
-#include "ScoreDisplayComponent.h"
-#include "PlayerCommands.h"
 #include "Scene.h"
-
-#include "SteamObserver.h"
+#include "GameObject.h"
+#include "FPSComponent.h"
+#include "TextComponent.h"
+#include "SpritesheetComponent.h"
+#include "QbertPlayerComponent.h"
+#include "QbertMoveCommand.h"
+#include "CoilyComponent.h"
+#include "QbertPyramid.h"
+#include "LevelData.h"
 #include "ServiceLocator.h"
 #include "SDLSoundSystem.h"
 #include "LoggingSoundSystem.h"
-
-#ifdef USE_STEAMWORKS
-#include <steam_api.h>
-#endif
+#include "SoundId.h"
+#include "Command.h"
 
 #include <filesystem>
+#include <array>
 namespace fs = std::filesystem;
 
-struct PlayerSetup
+static constexpr int LEVEL_COUNT = 3;
+static constexpr int QBERT_SRC_W = 17;
+static constexpr int QBERT_SRC_H = 16;
+static constexpr int COILY_SRC_W = 16;
+static constexpr int COILY_SRC_H = 32;
+
+static int g_currentLevel = 0;
+static fs::path g_dataLocation;
+
+static const std::array<const char*, LEVEL_COUNT> LEVEL_FILES =
 {
-	dae::PlayerComponent* player;
-	dae::MoveComponent* move;
+    "Levels/level1.json",
+    "Levels/level2.json",
+    "Levels/level3.json"
 };
 
-static PlayerSetup MakePlayer(dae::Scene& scene,
-	const char* sprite, float x, float y, float speed)
+static void LoadLevel(int levelIndex);
+
+namespace dae
 {
-	auto go = std::make_unique<dae::GameObject>();
-	go->SetLocalPosition(x, y);
-	go->AddComponent<dae::ImageComponent>(sprite);
-	auto* move = go->AddComponent<dae::MoveComponent>(speed);
-	auto* player = go->AddComponent<dae::PlayerComponent>(3);
-	scene.Add(std::move(go));
-	return { player, move };
+    class SkipLevelCommand final : public Command
+    {
+    public:
+        void Execute() override
+        {
+            g_currentLevel = (g_currentLevel + 1) % LEVEL_COUNT;
+            LoadLevel(g_currentLevel);
+        }
+    };
 }
 
-static void MakeLivesDisplay(dae::Scene& scene,
-	dae::PlayerComponent* player, int playerIndex, float x, float y,
-	std::shared_ptr<dae::Font> font)
+static void LoadLevel(int levelIndex)
 {
-	auto go = std::make_unique<dae::GameObject>();
-	auto* tc = go->AddComponent<dae::TextComponent>(
-		"P" + std::to_string(playerIndex + 1) + " Lives: 3", font);
-	tc->SetColor({ 255, 255, 255, 255 });
-	tc->SetPosition(x, y);
-	auto* display = go->AddComponent<dae::LivesDisplayComponent>(playerIndex, 3);
-	player->AddObserver(display);
-	scene.Add(std::move(go));
+    auto& sceneManager = dae::SceneManager::GetInstance();
+    auto& input = dae::InputManager::GetInstance();
+
+    // Tear down existing scene and gameplay bindings
+    // The scene manager removes scenes marked for removal on next Update,
+    // so mark all current scenes and create a fresh one immediately.
+    // Gameplay bindings reference old component pointers so unbind them first.
+    input.UnbindKeyboardCommand(SDL_SCANCODE_W, dae::Controller::KeyState::Down);
+    input.UnbindKeyboardCommand(SDL_SCANCODE_A, dae::Controller::KeyState::Down);
+    input.UnbindKeyboardCommand(SDL_SCANCODE_D, dae::Controller::KeyState::Down);
+    input.UnbindKeyboardCommand(SDL_SCANCODE_S, dae::Controller::KeyState::Down);
+    input.UnbindControllerCommand(0, dae::Controller::Button::DPadUp, dae::Controller::KeyState::Down);
+    input.UnbindControllerCommand(0, dae::Controller::Button::DPadLeft, dae::Controller::KeyState::Down);
+    input.UnbindControllerCommand(0, dae::Controller::Button::DPadRight, dae::Controller::KeyState::Down);
+    input.UnbindControllerCommand(0, dae::Controller::Button::DPadDown, dae::Controller::KeyState::Down);
+
+    // Mark old scenes for removal (cleaned up at start of next Update)
+    // We create the new scene immediately so it is ready this frame.
+    // SceneManager iterates all scenes each frame, so old ones are gone next tick.
+    sceneManager.MarkAllScenesForRemoval();
+    auto& scene = sceneManager.CreateScene();
+
+    // FPS counter
+    auto fpsGo = std::make_unique<dae::GameObject>();
+    auto font = dae::ResourceManager::GetInstance().LoadFont("Lingua.otf", 18);
+    auto* fpsText = fpsGo->AddComponent<dae::TextComponent>("0 FPS", font);
+    fpsText->SetColor({ 255, 255, 255, 255 });
+    fpsText->SetPosition(10.f, 10.f);
+    fpsGo->AddComponent<dae::FPSComponent>();
+    scene.Add(std::move(fpsGo));
+
+    dae::LevelData levelData = dae::LoadLevelData((g_dataLocation / LEVEL_FILES[levelIndex]).string());
+
+    dae::PyramidGrid grid = dae::BuildPyramid(scene, levelData, 0);
+    (void)grid;
+
+    auto qbertGo = std::make_unique<dae::GameObject>();
+    glm::vec2 startPos = dae::GridToCharacterPos(0, 0, QBERT_SRC_W, QBERT_SRC_H);
+    qbertGo->SetLocalPosition(startPos.x, startPos.y);
+    qbertGo->AddComponent<dae::SpritesheetComponent>("Qbert P1 Spritesheet.png", QBERT_SRC_W, QBERT_SRC_H, dae::PIXEL_SCALE);
+    auto* qbert = qbertGo->AddComponent<dae::QbertPlayerComponent>(0, 0, 3);
+    scene.Add(std::move(qbertGo));
+
+    auto coilyGo = std::make_unique<dae::GameObject>();
+    glm::vec2 coilyPos = dae::GridToCharacterPos(0, 0, COILY_SRC_W, COILY_SRC_H);
+    coilyGo->SetLocalPosition(coilyPos.x, coilyPos.y);
+    coilyGo->AddComponent<dae::SpritesheetComponent>("Coily Spritesheet.png", COILY_SRC_W, COILY_SRC_H, dae::PIXEL_SCALE);
+    coilyGo->AddComponent<dae::CoilyComponent>(1.f / levelData.enemyMoveSpeed);
+    scene.Add(std::move(coilyGo));
+
+    input.BindKeyboardCommand(SDL_SCANCODE_W, dae::Controller::KeyState::Down,
+        std::make_unique<dae::QbertMoveCommand>(qbert, 0));
+    input.BindKeyboardCommand(SDL_SCANCODE_A, dae::Controller::KeyState::Down,
+        std::make_unique<dae::QbertMoveCommand>(qbert, 1));
+    input.BindKeyboardCommand(SDL_SCANCODE_D, dae::Controller::KeyState::Down,
+        std::make_unique<dae::QbertMoveCommand>(qbert, 2));
+    input.BindKeyboardCommand(SDL_SCANCODE_S, dae::Controller::KeyState::Down,
+        std::make_unique<dae::QbertMoveCommand>(qbert, 3));
+
+    input.BindControllerCommand(0, dae::Controller::Button::DPadUp, dae::Controller::KeyState::Down,
+        std::make_unique<dae::QbertMoveCommand>(qbert, 0));
+    input.BindControllerCommand(0, dae::Controller::Button::DPadLeft, dae::Controller::KeyState::Down,
+        std::make_unique<dae::QbertMoveCommand>(qbert, 1));
+    input.BindControllerCommand(0, dae::Controller::Button::DPadRight, dae::Controller::KeyState::Down,
+        std::make_unique<dae::QbertMoveCommand>(qbert, 2));
+    input.BindControllerCommand(0, dae::Controller::Button::DPadDown, dae::Controller::KeyState::Down,
+        std::make_unique<dae::QbertMoveCommand>(qbert, 3));
 }
 
-static void MakeScoreDisplay(dae::Scene& scene,
-	dae::PlayerComponent* player, int playerIndex, float x, float y,
-	std::shared_ptr<dae::Font> font)
+int main(int, char* [])
 {
-	auto go = std::make_unique<dae::GameObject>();
-	auto* tc = go->AddComponent<dae::TextComponent>(
-		"P" + std::to_string(playerIndex + 1) + " Score: 0", font);
-	tc->SetColor({ 255, 255, 255, 255 });
-	tc->SetPosition(x, y);
-	auto* display = go->AddComponent<dae::ScoreDisplayComponent>(playerIndex);
-	player->AddObserver(display);
-	scene.Add(std::move(go));
-}
-
-static void load()
-{
-	auto& scene = dae::SceneManager::GetInstance().CreateScene();
-	auto& input = dae::InputManager::GetInstance();
-
-	//Background
-	auto bgGo = std::make_unique<dae::GameObject>();
-	bgGo->AddComponent<dae::ImageComponent>("background.png");
-	scene.Add(std::move(bgGo));
-
-	//Logo
-	auto loGo = std::make_unique<dae::GameObject>();
-	loGo->AddComponent<dae::ImageComponent>("logo.png");
-	loGo->SetLocalPosition(358.f, 180.f);
-	scene.Add(std::move(loGo));
-
-	//Title text
-	auto titleGo = std::make_unique<dae::GameObject>();
-	auto font = dae::ResourceManager::GetInstance().LoadFont("Lingua.otf", 36);
-	auto tc = titleGo->AddComponent<dae::TextComponent>("Programming 4 Assignment", font);
-	tc->SetColor({ 255, 255, 0, 255 });
-	tc->SetPosition(292.f, 20.f);
-	scene.Add(std::move(titleGo));
-
-	//FPS counter
-	auto fpsGo = std::make_unique<dae::GameObject>();
-	auto fpsText = fpsGo->AddComponent<dae::TextComponent>("0 FPS", font);
-	fpsText->SetColor({ 255, 255, 255, 255 });
-	fpsText->SetPosition(10.f, 10.f);
-	fpsGo->AddComponent<dae::FPSComponent>();
-	scene.Add(std::move(fpsGo));
-
-	//Controls
-	auto controlsGo = std::make_unique<dae::GameObject>();
-	font = dae::ResourceManager::GetInstance().LoadFont("Lingua.otf", 18);
-	auto cc1 = controlsGo->AddComponent<dae::TextComponent>("Use WASD to move Ugg, C to inflict damage, Z and X to get score", font);
-	cc1->SetColor({ 255, 255, 255, 255 });
-	cc1->SetPosition(10.f, 100.f);
-	auto cc2 = controlsGo->AddComponent<dae::TextComponent>("Use D-Pad to move Wrong-way, X to inflict damage, A and B to get score", font);
-	cc2->SetColor({ 255, 255, 255, 255 });
-	cc2->SetPosition(10.f, 120.f);
-	scene.Add(std::move(controlsGo));
-
-	// Ugg and wrong-way
-	auto [ugg, uggMove] = MakePlayer(scene, "ugg.png", 300.f, 300.f, 100.f);
-	MakeLivesDisplay(scene, ugg, 0, 10.f, 155.f, font);
-	MakeScoreDisplay(scene, ugg, 0, 10.f, 175.f, font);
-
-	auto [wrong, wrongMove] = MakePlayer(scene, "wrongway.png", 400.f, 300.f, 200.f);
-	MakeLivesDisplay(scene, wrong, 1, 10.f, 200.f, font);
-	MakeScoreDisplay(scene, wrong, 1, 10.f, 220.f, font);
-
-	static dae::SteamAchievementObserver steamObs;
-	ugg->AddObserver(&steamObs);
-	wrong->AddObserver(&steamObs);
-
-	// Keybinds
-	input.BindKeyboardCommand(SDL_SCANCODE_W, dae::Controller::KeyState::Pressed,
-		std::make_unique<dae::MoveCommand>(uggMove, glm::vec2{ 0.f, -1.f }));
-	input.BindKeyboardCommand(SDL_SCANCODE_S, dae::Controller::KeyState::Pressed,
-		std::make_unique<dae::MoveCommand>(uggMove, glm::vec2{ 0.f, 1.f }));
-	input.BindKeyboardCommand(SDL_SCANCODE_A, dae::Controller::KeyState::Pressed,
-		std::make_unique<dae::MoveCommand>(uggMove, glm::vec2{ -1.f, 0.f }));
-	input.BindKeyboardCommand(SDL_SCANCODE_D, dae::Controller::KeyState::Pressed,
-		std::make_unique<dae::MoveCommand>(uggMove, glm::vec2{ 1.f, 0.f }));
-
-	input.BindKeyboardCommand(SDL_SCANCODE_C, dae::Controller::KeyState::Down,
-		std::make_unique<dae::LoseLifeCommand>(wrong));
-	input.BindKeyboardCommand(SDL_SCANCODE_Z, dae::Controller::KeyState::Down,
-		std::make_unique<dae::AddScoreCommand>(ugg, 10));
-	input.BindKeyboardCommand(SDL_SCANCODE_X, dae::Controller::KeyState::Down,
-		std::make_unique<dae::AddScoreCommand>(ugg, 100));
-
-	input.BindControllerCommand(0, dae::Controller::Button::DPadUp, dae::Controller::KeyState::Pressed,
-		std::make_unique<dae::MoveCommand>(wrongMove, glm::vec2{ 0.f, -1.f }));
-	input.BindControllerCommand(0, dae::Controller::Button::DPadDown, dae::Controller::KeyState::Pressed,
-		std::make_unique<dae::MoveCommand>(wrongMove, glm::vec2{ 0.f, 1.f }));
-	input.BindControllerCommand(0, dae::Controller::Button::DPadLeft, dae::Controller::KeyState::Pressed,
-		std::make_unique<dae::MoveCommand>(wrongMove, glm::vec2{ -1.f, 0.f }));
-	input.BindControllerCommand(0, dae::Controller::Button::DPadRight, dae::Controller::KeyState::Pressed,
-		std::make_unique<dae::MoveCommand>(wrongMove, glm::vec2{ 1.f, 0.f }));
-
-	input.BindControllerCommand(0, dae::Controller::Button::X, dae::Controller::KeyState::Down,
-		std::make_unique<dae::LoseLifeCommand>(ugg));
-	input.BindControllerCommand(0, dae::Controller::Button::A, dae::Controller::KeyState::Down,
-		std::make_unique<dae::AddScoreCommand>(wrong, 10));
-	input.BindControllerCommand(0, dae::Controller::Button::B, dae::Controller::KeyState::Down,
-		std::make_unique<dae::AddScoreCommand>(wrong, 100));
-}
-
-int main(int, char*[]) {
-#ifdef USE_STEAMWORKS
-	SteamAPI_Init();
-#endif
 #if __EMSCRIPTEN__
-	fs::path data_location = "";
+    g_dataLocation = "";
 #else
-	fs::path data_location = "./Data/";
-	if(!fs::exists(data_location))
-		data_location = "../Data/";
+    g_dataLocation = "./Data/";
+    if (!fs::exists(g_dataLocation))
+        g_dataLocation = "../Data/";
 #endif
-	dae::Minigin engine(data_location);
+    dae::Minigin engine(g_dataLocation);
 
 #if _DEBUG
-	dae::ServiceLocator::RegisterSoundSystem(
-		std::make_unique<dae::LoggingSoundSystem>(
-			std::make_unique<dae::SDLSoundSystem>(data_location.string())));
+    auto soundSystem = std::make_unique<dae::LoggingSoundSystem>(
+        std::make_unique<dae::SDLSoundSystem>());
 #else
-	dae::ServiceLocator::RegisterSoundSystem(
-		std::make_unique<dae::SDLSoundSystem>(data_location.string()));
+    auto soundSystem = std::make_unique<dae::SDLSoundSystem>();
 #endif
 
-	engine.Run(load);
+    soundSystem->RegisterSound(dae::SoundId::QbertHit, g_dataLocation.string() + "Sounds/Qbert Hit.wav");
+    dae::ServiceLocator::RegisterSoundSystem(std::move(soundSystem));
 
-	dae::ServiceLocator::RegisterSoundSystem(nullptr);
+    engine.Run([]()
+        {
+            // F1 binding only needs to be set once, it survives level loads
+            dae::InputManager::GetInstance().BindKeyboardCommand(
+                SDL_SCANCODE_F1, dae::Controller::KeyState::Down,
+                std::make_unique<dae::SkipLevelCommand>());
 
-#ifdef USE_STEAMWORKS
-	SteamAPI_Shutdown();
-#endif
-	return 0;
+            LoadLevel(g_currentLevel);
+        });
+
+    dae::ServiceLocator::RegisterSoundSystem(nullptr);
+    return 0;
 }

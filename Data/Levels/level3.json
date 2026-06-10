@@ -1,0 +1,6 @@
+{
+    "roundColorColumns": [5, 2, 1, 0],
+    "rule": "RevertOnRetouch",
+    "enemySpawnInterval": 4.0,
+    "enemyMoveSpeed": 3.0
+}

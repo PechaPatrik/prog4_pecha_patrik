@@ -15,7 +15,6 @@ add_library(minigin STATIC
   ImageComponent.cpp
   RotatorComponent.cpp
   ThrashTheCache.cpp
-  MoveComponent.cpp
   Controller.cpp
   ServiceLocator.cpp
   SDLSoundSystem.cpp
@@ -35,6 +34,7 @@ target_link_libraries(minigin PUBLIC
   SDL3_mixer::SDL3_mixer
   glm::glm
   imgui
+  nlohmann_json::nlohmann_json
   ${VLD_LIBRARIES}
 )
 

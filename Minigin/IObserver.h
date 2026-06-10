@@ -7,6 +7,7 @@ namespace dae
         PlayerDied,
         ScoreChanged,
         LivesChanged,
+        PlayerMoved,
     };
 
     class IObserver

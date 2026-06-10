@@ -4,9 +4,19 @@
 #include <mutex>
 #include <condition_variable>
 #include <thread>
-#include <filesystem>
+#include <unordered_map>
 
-namespace fs = std::filesystem;
+namespace std
+{
+    template<>
+    struct hash<dae::SoundId>
+    {
+        size_t operator()(dae::SoundId id) const noexcept
+        {
+            return hash<int>{}(static_cast<int>(id));
+        }
+    };
+}
 
 namespace dae
 {
@@ -18,9 +28,8 @@ namespace dae
 
     struct SDLSoundSystem::Impl
     {
-        Impl(const std::string& dataPath)
+        Impl()
             : m_Mixer(nullptr)
-            , m_DamageAudio(nullptr)
             , m_Quit(false)
         {
             if (!MIX_Init())
@@ -37,20 +46,7 @@ namespace dae
                 return;
             }
 
-            fs::path audioPath = fs::path(dataPath) / "Audio" / "damage.mp3";
-            m_DamageAudio = MIX_LoadAudio(m_Mixer, audioPath.string().c_str(), true);
-            if (!m_DamageAudio)
-            {
-                SDL_Log("MIX_LoadAudio failed for '%s': %s",
-                    audioPath.string().c_str(), SDL_GetError());
-                MIX_DestroyMixer(m_Mixer);
-                m_Mixer = nullptr;
-                MIX_Quit();
-                return;
-            }
-
             m_WorkerThread = std::thread(&Impl::ProcessQueue, this);
-            SDL_Log("SDLSoundSystem initialized successfully");
         }
 
         ~Impl()
@@ -64,11 +60,9 @@ namespace dae
             if (m_WorkerThread.joinable())
                 m_WorkerThread.join();
 
-            if (m_DamageAudio)
-            {
-                MIX_DestroyAudio(m_DamageAudio);
-                m_DamageAudio = nullptr;
-            }
+            for (auto& [id, audio] : m_AudioMap)
+                MIX_DestroyAudio(audio);
+            m_AudioMap.clear();
 
             if (m_Mixer)
             {
@@ -79,10 +73,23 @@ namespace dae
             MIX_Quit();
         }
 
+        void RegisterSound(SoundId id, const std::string& filePath)
+        {
+            if (!m_Mixer) return;
+            if (m_AudioMap.count(id)) return;
+
+            MIX_Audio* audio = MIX_LoadAudio(m_Mixer, filePath.c_str(), true);
+            if (!audio)
+            {
+                SDL_Log("MIX_LoadAudio failed for '%s': %s", filePath.c_str(), SDL_GetError());
+                return;
+            }
+            m_AudioMap[id] = audio;
+        }
+
         void PlaySound(SoundId id, int volume)
         {
-            if (!m_WorkerThread.joinable())
-                return;
+            if (!m_WorkerThread.joinable()) return;
 
             std::lock_guard<std::mutex> lock(m_QueueMutex);
             m_RequestQueue.push({ id, volume });
@@ -108,14 +115,15 @@ namespace dae
                     m_RequestQueue.pop();
                     lock.unlock();
 
-                    if (request.id == SoundId::PlayerDamage && m_DamageAudio && m_Mixer)
-                        MIX_PlayAudio(m_Mixer, m_DamageAudio);
+                    auto it = m_AudioMap.find(request.id);
+                    if (it != m_AudioMap.end() && it->second && m_Mixer)
+                        MIX_PlayAudio(m_Mixer, it->second);
                 }
             }
         }
 
         MIX_Mixer* m_Mixer;
-        MIX_Audio* m_DamageAudio;
+        std::unordered_map<SoundId, MIX_Audio*> m_AudioMap;
 
         std::queue<SoundRequest> m_RequestQueue;
         std::mutex m_QueueMutex;
@@ -124,12 +132,17 @@ namespace dae
         bool m_Quit;
     };
 
-    SDLSoundSystem::SDLSoundSystem(const std::string& dataPath)
-        : m_pImpl(std::make_unique<Impl>(dataPath))
+    SDLSoundSystem::SDLSoundSystem()
+        : m_pImpl(std::make_unique<Impl>())
     {
     }
 
     SDLSoundSystem::~SDLSoundSystem() = default;
+
+    void SDLSoundSystem::RegisterSound(SoundId id, const std::string& filePath)
+    {
+        m_pImpl->RegisterSound(id, filePath);
+    }
 
     void SDLSoundSystem::PlaySound(SoundId id, int volume)
     {

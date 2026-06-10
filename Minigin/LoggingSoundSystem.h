@@ -13,11 +13,16 @@ namespace dae
         {
         }
 
+        void RegisterSound(SoundId id, const std::string& filePath) override
+        {
+            m_pReal->RegisterSound(id, filePath);
+            std::cout << "RegisterSound id=" << static_cast<int>(id) << " path=" << filePath << "\n";
+        }
+
         void PlaySound(SoundId id, int volume) override
         {
             m_pReal->PlaySound(id, volume);
-            std::cout << "PlaySound id=" << static_cast<int>(id)
-                << " volume=" << volume << "\n";
+            std::cout << "PlaySound id=" << static_cast<int>(id) << " volume=" << volume << "\n";
         }
 
     private:

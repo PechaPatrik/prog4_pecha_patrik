@@ -4,6 +4,6 @@ namespace dae
 {
     enum class SoundId
     {
-        PlayerDamage
+        QbertHit
     };
 }

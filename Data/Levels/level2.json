@@ -1,0 +1,6 @@
+{
+    "roundColorColumns": [1, 3, 0, 4],
+    "rule": "DoubleStep",
+    "enemySpawnInterval": 4.5,
+    "enemyMoveSpeed": 2.5
+}
