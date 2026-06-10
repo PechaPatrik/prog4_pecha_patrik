@@ -12,15 +12,15 @@ namespace dae
         return row >= 0 && row <= 6 && col >= 0 && col <= row;
     }
 
-    // direction deltas: 0=up-right(row-1,col), 1=up-left(row-1,col-1), 2=down-right(row+1,col+1), 3=down-left(row+1,col)
+    // 0=up-right(row-1,col), 1=up-left(row-1,col-1), 2=down-right(row+1,col+1), 3=down-left(row+1,col)
     static const int dRow[4] = { -1, -1, 1, 1 };
     static const int dCol[4] = { 0, -1, 1, 0 };
 
     std::unique_ptr<CoilyBaseState> CoilyEggState::Update(float deltaTime, CoilyComponent& coily)
     {
-        m_hopTimer += deltaTime;
-        if (m_hopTimer < m_hopInterval) return nullptr;
-        m_hopTimer = 0.f;
+        m_groundTimer += deltaTime;
+        if (m_groundTimer < m_hopInterval) return nullptr;
+        m_groundTimer = 0.f;
 
         int row = coily.GetGridRow();
         int col = coily.GetGridCol();
@@ -39,38 +39,35 @@ namespace dae
         }
 
         if (InBounds(newRow, newCol))
-        {
-            coily.SetInAir(true);
-            coily.SetGridPosition(newRow, newCol);
-            coily.SetInAir(false);
-        }
+            coily.BeginHop(newRow, newCol, m_hopInterval);
 
-        // Reached bottom row: transform into snake
+        return nullptr;
+    }
+
+    std::unique_ptr<CoilyBaseState> CoilyEggState::OnLanded(CoilyComponent& coily)
+    {
         if (coily.GetGridRow() == 6)
             return std::make_unique<CoilySnakeState>(m_hopInterval);
-
         return nullptr;
     }
 
     int CoilySnakeState::GetCol(bool inAir) const
     {
-        // direction: 0=up-right, 1=up-left, 2=down-right, 3=down-left
         int base = 2 + m_direction * 2;
         return inAir ? base + 1 : base;
     }
 
     std::unique_ptr<CoilyBaseState> CoilySnakeState::Update(float deltaTime, CoilyComponent& coily)
     {
-        m_hopTimer += deltaTime;
-        if (m_hopTimer < m_hopInterval) return nullptr;
-        m_hopTimer = 0.f;
+        m_groundTimer += deltaTime;
+        if (m_groundTimer < m_hopInterval) return nullptr;
+        m_groundTimer = 0.f;
 
         int row = coily.GetGridRow();
         int col = coily.GetGridCol();
         int targetRow = coily.GetTargetRow();
         int targetCol = coily.GetTargetCol();
 
-        // Pick direction that minimizes Manhattan distance to target
         int bestDir = -1;
         int bestDist = INT_MAX;
         for (int dir = 0; dir < 4; ++dir)
@@ -90,10 +87,13 @@ namespace dae
 
         m_direction = bestDir;
         coily.SetLastMoveDirection(bestDir);
-        coily.SetInAir(true);
-        coily.SetGridPosition(row + dRow[bestDir], col + dCol[bestDir]);
-        coily.SetInAir(false);
+        coily.BeginHop(row + dRow[bestDir], col + dCol[bestDir], m_hopInterval);
 
+        return nullptr;
+    }
+
+    std::unique_ptr<CoilyBaseState> CoilySnakeState::OnLanded(CoilyComponent&)
+    {
         return nullptr;
     }
 }

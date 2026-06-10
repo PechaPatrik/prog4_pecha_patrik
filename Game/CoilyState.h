@@ -10,6 +10,7 @@ namespace dae
     public:
         virtual ~CoilyBaseState() = default;
         virtual std::unique_ptr<CoilyBaseState> Update(float deltaTime, CoilyComponent& coily) = 0;
+        virtual std::unique_ptr<CoilyBaseState> OnLanded(CoilyComponent& coily) = 0;
         virtual int GetCol(bool inAir) const = 0;
         virtual bool IsEgg() const = 0;
     };
@@ -21,12 +22,13 @@ namespace dae
             : m_hopInterval(hopInterval) {
         }
         std::unique_ptr<CoilyBaseState> Update(float deltaTime, CoilyComponent& coily) override;
+        std::unique_ptr<CoilyBaseState> OnLanded(CoilyComponent& coily) override;
         int GetCol(bool inAir) const override { return inAir ? 1 : 0; }
         bool IsEgg() const override { return true; }
         float GetHopInterval() const { return m_hopInterval; }
 
     private:
-        float m_hopTimer{ 0.f };
+        float m_groundTimer{ 0.f };
         float m_hopInterval;
     };
 
@@ -37,12 +39,12 @@ namespace dae
             : m_hopInterval(hopInterval) {
         }
         std::unique_ptr<CoilyBaseState> Update(float deltaTime, CoilyComponent& coily) override;
+        std::unique_ptr<CoilyBaseState> OnLanded(CoilyComponent& coily) override;
         int GetCol(bool inAir) const override;
         bool IsEgg() const override { return false; }
-        void SetDirection(int dir) { m_direction = dir; }
 
     private:
-        float m_hopTimer{ 0.f };
+        float m_groundTimer{ 0.f };
         float m_hopInterval;
         int m_direction{ 2 };
     };
