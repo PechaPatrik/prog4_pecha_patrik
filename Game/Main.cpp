@@ -28,6 +28,7 @@
 #include "ScoreDisplayComponent.h"
 #include "LivesDisplayComponent.h"
 #include "ImageComponent.h"
+#include "UggWrongwayComponent.h"
 
 #include <filesystem>
 #include <array>
@@ -38,6 +39,8 @@ static constexpr int QBERT_SRC_W = 17;
 static constexpr int QBERT_SRC_H = 16;
 static constexpr int COILY_SRC_W = 16;
 static constexpr int COILY_SRC_H = 32;
+static constexpr int UGG_SRC_W = dae::UGG_SRC_W;
+static constexpr int UGG_SRC_H = dae::UGG_SRC_H;
 
 static int g_currentLevel = 0;
 static fs::path g_dataLocation;
@@ -186,6 +189,22 @@ static void LoadLevel(int levelIndex)
     auto* coily = coilyGo->AddComponent<dae::CoilyComponent>(1.f / levelData.enemyMoveSpeed);
     coily->SetQbert(qbert);
     scene.Add(std::move(coilyGo));
+
+    auto uggLeftGo = std::make_unique<dae::GameObject>();
+    auto* uggLeft = uggLeftGo->AddComponent<dae::UggWrongwayComponent>(true, 1.f / levelData.enemyMoveSpeed);
+    uggLeftGo->AddComponent<dae::SpritesheetComponent>("Ugg Wrongway Spritesheet.png", UGG_SRC_W, UGG_SRC_H);
+    glm::vec2 uggLeftPos = uggLeft->GetInitialPos(UGG_SRC_W, UGG_SRC_H);
+    uggLeftGo->SetLocalPosition(uggLeftPos.x, uggLeftPos.y);
+    uggLeft->SetQbert(qbert);
+    scene.Add(std::move(uggLeftGo));
+
+    auto uggRightGo = std::make_unique<dae::GameObject>();
+    auto* uggRight = uggRightGo->AddComponent<dae::UggWrongwayComponent>(false, 1.f / levelData.enemyMoveSpeed);
+    uggRightGo->AddComponent<dae::SpritesheetComponent>("Ugg Wrongway Spritesheet.png", UGG_SRC_W, UGG_SRC_H);
+    glm::vec2 uggRightPos = uggRight->GetInitialPos(UGG_SRC_W, UGG_SRC_H);
+    uggRightGo->SetLocalPosition(uggRightPos.x, uggRightPos.y);
+    uggRight->SetQbert(qbert);
+    scene.Add(std::move(uggRightGo));
 
     input.BindKeyboardCommand(SDL_SCANCODE_W, dae::Controller::KeyState::Down,
         std::make_unique<dae::QbertMoveCommand>(qbert, 0));
