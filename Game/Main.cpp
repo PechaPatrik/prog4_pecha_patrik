@@ -30,6 +30,7 @@
 #include "ImageComponent.h"
 #include "UggWrongwayComponent.h"
 
+#include "SlickSamComponent.h"
 #include <filesystem>
 #include <array>
 namespace fs = std::filesystem;
@@ -41,6 +42,9 @@ static constexpr int COILY_SRC_W = 16;
 static constexpr int COILY_SRC_H = 32;
 static constexpr int UGG_SRC_W = dae::UGG_SRC_W;
 static constexpr int UGG_SRC_H = dae::UGG_SRC_H;
+
+static constexpr int SLICK_SAM_SRC_W = dae::SLICK_SAM_SRC_W;
+static constexpr int SLICK_SAM_SRC_H = dae::SLICK_SAM_SRC_H;
 
 static int g_currentLevel = 0;
 static fs::path g_dataLocation;
@@ -206,6 +210,24 @@ static void LoadLevel(int levelIndex)
     uggRight->SetQbert(qbert);
     scene.Add(std::move(uggRightGo));
 
+    auto slickGo = std::make_unique<dae::GameObject>();
+    slickGo->AddComponent<dae::SpritesheetComponent>("Slick Sam Spritesheet.png", SLICK_SAM_SRC_W, SLICK_SAM_SRC_H);
+    auto* slick = slickGo->AddComponent<dae::SlickSamComponent>(true, true, 1.f / levelData.enemyMoveSpeed);
+    slick->SetPyramidGrid(&g_pyramidGrid);
+    slick->SetQbert(qbert);
+    glm::vec2 slickPos = slick->GetInitialPos(SLICK_SAM_SRC_W, SLICK_SAM_SRC_H);
+    slickGo->SetLocalPosition(slickPos.x, slickPos.y);
+    scene.Add(std::move(slickGo));
+
+    auto samGo = std::make_unique<dae::GameObject>();
+    samGo->AddComponent<dae::SpritesheetComponent>("Slick Sam Spritesheet.png", SLICK_SAM_SRC_W, SLICK_SAM_SRC_H);
+    auto* sam = samGo->AddComponent<dae::SlickSamComponent>(false, false, 1.f / levelData.enemyMoveSpeed);
+    sam->SetPyramidGrid(&g_pyramidGrid);
+    sam->SetQbert(qbert);
+    glm::vec2 samPos = sam->GetInitialPos(SLICK_SAM_SRC_W, SLICK_SAM_SRC_H);
+    samGo->SetLocalPosition(samPos.x, samPos.y);
+    scene.Add(std::move(samGo));
+
     input.BindKeyboardCommand(SDL_SCANCODE_W, dae::Controller::KeyState::Down,
         std::make_unique<dae::QbertMoveCommand>(qbert, 0));
     input.BindKeyboardCommand(SDL_SCANCODE_A, dae::Controller::KeyState::Down,
@@ -245,6 +267,8 @@ int main(int, char* [])
 
     soundSystem->RegisterSound(dae::SoundId::QbertHit, g_dataLocation.string() + "Sounds/Qbert Hit.wav");
     dae::ServiceLocator::RegisterSoundSystem(std::move(soundSystem));
+
+    std::srand(static_cast<unsigned int>(std::time(nullptr)));
 
     engine.Run([]()
         {

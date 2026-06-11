@@ -35,6 +35,24 @@ namespace dae
             UpdateSprite();
         }
 
+        // Slick/Sam: target -> intermediate (DoubleStep), target -> untouched (others), intermediate -> untouched
+        void StepBack()
+        {
+            if (m_state->IsTarget())
+            {
+                if (m_rule == LevelRule::DoubleStep)
+                    m_state = std::make_unique<IntermediateState>();
+                else
+                    m_state = std::make_unique<UntouchedState>();
+            }
+            else if (m_state->GetRow() == 1)
+            {
+                m_state = std::make_unique<UntouchedState>();
+            }
+            else return;
+            UpdateSprite();
+        }
+
         bool IsTarget() const { return m_state->IsTarget(); }
 
     private:
