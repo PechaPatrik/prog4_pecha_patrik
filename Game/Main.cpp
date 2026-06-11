@@ -17,7 +17,6 @@
 #include "SpritesheetComponent.h"
 #include "QbertPlayerComponent.h"
 #include "QbertMoveCommand.h"
-#include "CoilyComponent.h"
 #include "QbertPyramid.h"
 #include "LevelData.h"
 #include "ServiceLocator.h"
@@ -28,9 +27,9 @@
 #include "ScoreDisplayComponent.h"
 #include "LivesDisplayComponent.h"
 #include "ImageComponent.h"
-#include "UggWrongwayComponent.h"
-
-#include "SlickSamComponent.h"
+#include "EnemySpawnerComponent.h"
+#include "GameStateManager.h"
+#include "GsmUpdaterComponent.h"
 #include <filesystem>
 #include <array>
 namespace fs = std::filesystem;
@@ -38,15 +37,9 @@ namespace fs = std::filesystem;
 static constexpr int LEVEL_COUNT = 3;
 static constexpr int QBERT_SRC_W = 17;
 static constexpr int QBERT_SRC_H = 16;
-static constexpr int COILY_SRC_W = 16;
-static constexpr int COILY_SRC_H = 32;
-static constexpr int UGG_SRC_W = dae::UGG_SRC_W;
-static constexpr int UGG_SRC_H = dae::UGG_SRC_H;
-
-static constexpr int SLICK_SAM_SRC_W = dae::SLICK_SAM_SRC_W;
-static constexpr int SLICK_SAM_SRC_H = dae::SLICK_SAM_SRC_H;
 
 static int g_currentLevel = 0;
+static int g_currentRound = 0;
 static fs::path g_dataLocation;
 static dae::PyramidGrid g_pyramidGrid;
 
@@ -57,7 +50,7 @@ static const std::array<const char*, LEVEL_COUNT> LEVEL_FILES =
     "Levels/level3.json"
 };
 
-static void LoadLevel(int levelIndex);
+static void LoadLevel(int levelIndex, int round);
 
 namespace dae
 {
@@ -67,15 +60,19 @@ namespace dae
         void Execute() override
         {
             g_currentLevel = (g_currentLevel + 1) % LEVEL_COUNT;
-            LoadLevel(g_currentLevel);
+            g_currentRound = 0;
+            LoadLevel(g_currentLevel, g_currentRound);
         }
     };
 }
 
-static void LoadLevel(int levelIndex)
+static void LoadLevel(int levelIndex, int round)
 {
     auto& sceneManager = dae::SceneManager::GetInstance();
     auto& input = dae::InputManager::GetInstance();
+    auto& gsm = dae::GameStateManager::GetInstance();
+
+    gsm.Reset();
 
     input.UnbindKeyboardCommand(SDL_SCANCODE_W, dae::Controller::KeyState::Down);
     input.UnbindKeyboardCommand(SDL_SCANCODE_A, dae::Controller::KeyState::Down);
@@ -125,10 +122,11 @@ static void LoadLevel(int levelIndex)
     changeText->SetPosition(10.f, changeY);
     scene.Add(std::move(changeLabelGo));
 
+    int colorColIdx = round % static_cast<int>(levelData.roundColorColumns.size());
     auto iconGo = std::make_unique<dae::GameObject>();
     iconGo->SetLocalPosition(10.f + 172.f, changeY - 8.f);
     auto* iconSheet = iconGo->AddComponent<dae::SpritesheetComponent>("Color Icons Spritesheet.png", 14, 12);
-    iconSheet->SetFrame(levelData.roundColorColumns[0], 1);
+    iconSheet->SetFrame(levelData.roundColorColumns[colorColIdx], 1);
     scene.Add(std::move(iconGo));
 
     float rightX = dae::WINDOW_W - 200.f;
@@ -151,18 +149,17 @@ static void LoadLevel(int levelIndex)
     scene.Add(std::move(roundLabelGo));
 
     auto roundNumGo = std::make_unique<dae::GameObject>();
-    auto* roundNumText = roundNumGo->AddComponent<dae::TextComponent>("1", mcFontSmall);
+    auto* roundNumText = roundNumGo->AddComponent<dae::TextComponent>(std::to_string(round + 1), mcFontSmall);
     roundNumText->SetColor({ 255, 165, 0, 255 });
     roundNumText->SetPosition(rightX + 110.f, 80.f + 28.f);
     scene.Add(std::move(roundNumGo));
 
-    // Heart.png is 28x28 source; rendered at PIXEL_SCALE
     static constexpr float HEART_SRC_SIZE = 14.f;
     float heartRenderedH = HEART_SRC_SIZE * dae::PIXEL_SCALE;
     float heartStartY = changeY + 48.f;
 
     auto livesGo = std::make_unique<dae::GameObject>();
-    auto* livesDisplay = livesGo->AddComponent<dae::LivesDisplayComponent>(3);
+    auto* livesDisplay = livesGo->AddComponent<dae::LivesDisplayComponent>(0, 3);
     scene.Add(std::move(livesGo));
 
     for (int i = 0; i < dae::MAX_LIVES; ++i)
@@ -174,59 +171,29 @@ static void LoadLevel(int levelIndex)
         scene.Add(std::move(heartGo));
     }
 
-    g_pyramidGrid = dae::BuildPyramid(scene, levelData, 0);
+    g_pyramidGrid = dae::BuildPyramid(scene, levelData, round);
 
     auto qbertGo = std::make_unique<dae::GameObject>();
     glm::vec2 startPos = dae::GridToCharacterPos(0, 0, QBERT_SRC_W, QBERT_SRC_H);
     qbertGo->SetLocalPosition(startPos.x, startPos.y);
     qbertGo->AddComponent<dae::SpritesheetComponent>("Qbert P1 Spritesheet.png", QBERT_SRC_W, QBERT_SRC_H);
-    auto* qbert = qbertGo->AddComponent<dae::QbertPlayerComponent>();
+    auto* qbert = qbertGo->AddComponent<dae::QbertPlayerComponent>(0, 0, 0, 3);
     qbert->SetPyramidGrid(&g_pyramidGrid);
+    qbert->SetScene(&scene);
+    qbert->SetFreezeDuration(levelData.freezeDuration);
+    qbert->SetPointsPerCubeChange(levelData.pointsPerCubeChange);
+    qbert->SetPointsSlickSam(levelData.pointsSlickSam);
     qbert->AddObserver(scoreObs);
     qbert->AddObserver(livesDisplay);
     scene.Add(std::move(qbertGo));
 
-    auto coilyGo = std::make_unique<dae::GameObject>();
-    glm::vec2 coilyPos = dae::GridToCharacterPos(0, 0, COILY_SRC_W, COILY_SRC_H);
-    coilyGo->SetLocalPosition(coilyPos.x, coilyPos.y);
-    coilyGo->AddComponent<dae::SpritesheetComponent>("Coily Spritesheet.png", COILY_SRC_W, COILY_SRC_H);
-    auto* coily = coilyGo->AddComponent<dae::CoilyComponent>(1.f / levelData.enemyMoveSpeed);
-    coily->SetQbert(qbert);
-    scene.Add(std::move(coilyGo));
+    gsm.RegisterPlayer(qbert);
 
-    auto uggLeftGo = std::make_unique<dae::GameObject>();
-    auto* uggLeft = uggLeftGo->AddComponent<dae::UggWrongwayComponent>(true, 1.f / levelData.enemyMoveSpeed);
-    uggLeftGo->AddComponent<dae::SpritesheetComponent>("Ugg Wrongway Spritesheet.png", UGG_SRC_W, UGG_SRC_H);
-    glm::vec2 uggLeftPos = uggLeft->GetInitialPos(UGG_SRC_W, UGG_SRC_H);
-    uggLeftGo->SetLocalPosition(uggLeftPos.x, uggLeftPos.y);
-    uggLeft->SetQbert(qbert);
-    scene.Add(std::move(uggLeftGo));
-
-    auto uggRightGo = std::make_unique<dae::GameObject>();
-    auto* uggRight = uggRightGo->AddComponent<dae::UggWrongwayComponent>(false, 1.f / levelData.enemyMoveSpeed);
-    uggRightGo->AddComponent<dae::SpritesheetComponent>("Ugg Wrongway Spritesheet.png", UGG_SRC_W, UGG_SRC_H);
-    glm::vec2 uggRightPos = uggRight->GetInitialPos(UGG_SRC_W, UGG_SRC_H);
-    uggRightGo->SetLocalPosition(uggRightPos.x, uggRightPos.y);
-    uggRight->SetQbert(qbert);
-    scene.Add(std::move(uggRightGo));
-
-    auto slickGo = std::make_unique<dae::GameObject>();
-    slickGo->AddComponent<dae::SpritesheetComponent>("Slick Sam Spritesheet.png", SLICK_SAM_SRC_W, SLICK_SAM_SRC_H);
-    auto* slick = slickGo->AddComponent<dae::SlickSamComponent>(true, true, 1.f / levelData.enemyMoveSpeed);
-    slick->SetPyramidGrid(&g_pyramidGrid);
-    slick->SetQbert(qbert);
-    glm::vec2 slickPos = slick->GetInitialPos(SLICK_SAM_SRC_W, SLICK_SAM_SRC_H);
-    slickGo->SetLocalPosition(slickPos.x, slickPos.y);
-    scene.Add(std::move(slickGo));
-
-    auto samGo = std::make_unique<dae::GameObject>();
-    samGo->AddComponent<dae::SpritesheetComponent>("Slick Sam Spritesheet.png", SLICK_SAM_SRC_W, SLICK_SAM_SRC_H);
-    auto* sam = samGo->AddComponent<dae::SlickSamComponent>(false, false, 1.f / levelData.enemyMoveSpeed);
-    sam->SetPyramidGrid(&g_pyramidGrid);
-    sam->SetQbert(qbert);
-    glm::vec2 samPos = sam->GetInitialPos(SLICK_SAM_SRC_W, SLICK_SAM_SRC_H);
-    samGo->SetLocalPosition(samPos.x, samPos.y);
-    scene.Add(std::move(samGo));
+    auto gsmAndSpawnerGo = std::make_unique<dae::GameObject>();
+    gsmAndSpawnerGo->AddComponent<dae::GsmUpdaterComponent>(&scene);
+    gsmAndSpawnerGo->AddComponent<dae::EnemySpawnerComponent>(
+        levelData, &g_pyramidGrid, &scene, gsm.GetPlayers(), round);
+    scene.Add(std::move(gsmAndSpawnerGo));
 
     input.BindKeyboardCommand(SDL_SCANCODE_W, dae::Controller::KeyState::Down,
         std::make_unique<dae::QbertMoveCommand>(qbert, 0));
@@ -272,12 +239,11 @@ int main(int, char* [])
 
     engine.Run([]()
         {
-            // F1 binding only needs to be set once, it survives level loads
             dae::InputManager::GetInstance().BindKeyboardCommand(
                 SDL_SCANCODE_F1, dae::Controller::KeyState::Down,
                 std::make_unique<dae::SkipLevelCommand>());
 
-            LoadLevel(g_currentLevel);
+            LoadLevel(g_currentLevel, g_currentRound);
         });
 
     dae::ServiceLocator::RegisterSoundSystem(nullptr);

@@ -12,6 +12,11 @@ add_executable(${TARGET_NAME} ${TARGET_PARAM}
   LevelData.cpp
   QbertPyramid.cpp
   CoilyState.cpp
+  GameStateManager.cpp
+  QbertPlayerComponent.cpp
+  CoilyComponent.cpp
+  UggWrongwayComponent.cpp
+  SlickSamComponent.cpp
 )
 
 target_compile_features(${TARGET_NAME} PUBLIC cxx_std_20)

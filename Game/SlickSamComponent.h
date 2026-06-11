@@ -19,18 +19,21 @@ namespace dae
     static const int SS_dRow[4] = { -1, -1, 1, 1 };
     static const int SS_dCol[4] = { 0, -1, 1, 0 };
 
+    class Scene;
+
     class SlickSamComponent final : public Component
     {
     public:
         // isSlick: true = Slick (spritesheet row 0), false = Sam (spritesheet row 1)
         // isLeftSide: true spawns at row 1 col 0, false spawns at row 1 col 1
-        SlickSamComponent(GameObject* pOwner, bool isSlick, bool isLeftSide, float hopInterval = 0.5f)
+        SlickSamComponent(GameObject* pOwner, bool isSlick, bool isLeftSide, float hopInterval = 0.5f,
+            int spawnRow = 1, int spawnCol = -1)
             : Component(pOwner)
             , m_spriteRow(isSlick ? 0 : 1)
             , m_isLeftSide(isLeftSide)
             , m_hopInterval(hopInterval)
-            , m_gridRow(1)
-            , m_gridCol(isLeftSide ? 0 : 1)
+            , m_gridRow(spawnRow)
+            , m_gridCol(spawnCol < 0 ? (isLeftSide ? 0 : 1) : spawnCol)
         {
         }
 
@@ -43,66 +46,19 @@ namespace dae
 
         void SetPyramidGrid(PyramidGrid* grid) { m_grid = grid; }
         void SetQbert(QbertPlayerComponent* qbert) { m_qbert = qbert; }
+        void SetScene(Scene* scene) { m_scene = scene; }
+        void SetFreezeDuration(float d) { m_freezeDuration = d; }
 
         int GetGridRow() const { return m_gridRow; }
         int GetGridCol() const { return m_gridCol; }
+        bool IsHopping() const { return m_introFalling || m_hopping; }
 
         glm::vec2 GetInitialPos(int charSrcW, int charSrcH) const
         {
             return GridToCharacterPos(m_gridRow, m_gridCol, charSrcW, charSrcH);
         }
 
-        void Update(float deltaTime) override
-        {
-            if (!m_initialized)
-            {
-                m_initialized = true;
-                UpdateSprite();
-                RevertCube();
-            }
-
-            if (m_falling)
-            {
-                m_fallSpeed += SLICK_SAM_GRAVITY * deltaTime;
-                m_fallPos.y += m_fallSpeed * deltaTime;
-                GetOwner()->SetLocalPosition(m_fallPos.x, m_fallPos.y);
-                if (m_fallPos.y > WINDOW_H + SLICK_SAM_SRC_H * PIXEL_SCALE * 2.f)
-                    GetOwner()->MarkForRemoval();
-                return;
-            }
-
-            if (m_hopping)
-            {
-                m_hopPhase += deltaTime / m_hopDuration;
-                if (m_hopPhase >= 1.f)
-                {
-                    m_hopPhase = 1.f;
-                    m_hopping = false;
-                    ApplyArcPosition(1.f);
-
-                    if (!IsOnPyramid(m_destRow, m_destCol))
-                    {
-                        BeginFall();
-                        return;
-                    }
-
-                    m_gridRow = m_destRow;
-                    m_gridCol = m_destCol;
-                    RevertCube();
-                }
-                else
-                {
-                    ApplyArcPosition(m_hopPhase);
-                }
-                return;
-            }
-
-            m_groundTimer += deltaTime;
-            if (m_groundTimer < m_hopInterval) return;
-            m_groundTimer = 0.f;
-
-            ChooseAndBeginHop();
-        }
+        void Update(float deltaTime) override;
 
     private:
         void RevertCube()
@@ -179,6 +135,8 @@ namespace dae
 
         PyramidGrid* m_grid{ nullptr };
         QbertPlayerComponent* m_qbert{ nullptr };
+        Scene* m_scene{ nullptr };
+        float m_freezeDuration{ 1.f };
 
         int m_spriteRow;
         int m_spriteCol{ 0 };
@@ -202,5 +160,13 @@ namespace dae
         float m_fallSpeed{ SLICK_SAM_FALL_SPEED_INIT };
 
         bool m_initialized{ false };
+
+        // Intro fall from above to spawn tile
+        bool m_introFalling{ true };
+        glm::vec2 m_introFrom{ 0.f, 0.f };
+        glm::vec2 m_introTo{ 0.f, 0.f };
+        float m_introSpeed{ 400.f };
+        float m_introProgress{ 0.f };
+        float m_introLength{ 1.f };
     };
 }

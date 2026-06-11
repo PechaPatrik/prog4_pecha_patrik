@@ -14,13 +14,19 @@ namespace dae
     static const int QbertDRow[4] = { -1, -1,  1,  1 };
     static const int QbertDCol[4] = { 0, -1,  1,  0 };
 
+    class Scene;
+
     class QbertPlayerComponent final : public Component
     {
     public:
-        QbertPlayerComponent(GameObject* pOwner, int startRow = 0, int startCol = 0, int maxLives = 3)
+        QbertPlayerComponent(GameObject* pOwner, int playerIndex = 0,
+            int startRow = 0, int startCol = 0, int maxLives = 3)
             : Component(pOwner)
+            , m_playerIndex(playerIndex)
             , m_gridRow(startRow)
             , m_gridCol(startCol)
+            , m_respawnRow(startRow)
+            , m_respawnCol(startCol)
             , m_lives(maxLives)
         {
         }
@@ -33,76 +39,65 @@ namespace dae
         QbertPlayerComponent& operator=(QbertPlayerComponent&&) = delete;
 
         void SetPyramidGrid(PyramidGrid* grid) { m_grid = grid; }
+        void SetScene(Scene* scene) { m_scene = scene; }
+        void SetFreezeDuration(float d) { m_freezeDuration = d; }
+        void SetPointsPerCubeChange(int pts) { m_pointsPerCubeChange = pts; }
+        void SetPointsSlickSam(int pts) { m_pointsSlickSam = pts; }
 
-        void Update(float deltaTime) override
-        {
-            if (m_hopping)
-            {
-                m_hopPhase += deltaTime / m_hopDuration;
-                if (m_hopPhase >= 1.f)
-                {
-                    m_hopPhase = 1.f;
-                    m_hopping = false;
-                    m_gridRow = m_destRow;
-                    m_gridCol = m_destCol;
-                    ApplyArcPosition(1.f);
-                    OnLanded();
-                }
-                else
-                {
-                    ApplyArcPosition(m_hopPhase);
-                }
-                UpdateSprite(m_lastDir);
-                return;
-            }
-
-            if (!m_hasPendingMove) return;
-            m_hasPendingMove = false;
-
-            int dir = m_pendingDirection;
-            int newRow = m_gridRow + QbertDRow[dir];
-            int newCol = m_gridCol + QbertDCol[dir];
-
-            m_lastDir = dir;
-            UpdateSprite(dir);
-
-            if (newRow < 0 || newRow > 6 || newCol < 0 || newCol > newRow)
-            {
-                LoseLife();
-                return;
-            }
-
-            BeginHop(newRow, newCol, dir);
-        }
+        void Update(float deltaTime) override;
 
         void RequestMove(int direction)
         {
-            if (m_hopping) return;
+            if (m_hopping || m_dead) return;
             m_pendingDirection = direction;
             m_hasPendingMove = true;
         }
 
+        bool IsHopping() const { return m_hopping; }
+        bool IsDead() const { return m_dead; }
+        int GetPlayerIndex() const { return m_playerIndex; }
         int GetGridRow() const { return m_gridRow; }
         int GetGridCol() const { return m_gridCol; }
         int GetLives() const { return m_lives; }
         int GetScore() const { return m_score; }
 
+        // World position to use for placing the curse image and for respawn
+        glm::vec2 GetDeathWorldPos() const
+        {
+            glm::vec2 wp = const_cast<GameObject*>(GetOwner())->GetWorldPosition();
+            return { wp.x, wp.y };
+        }
+
+        // Called by GameStateManager after freeze ends
+        void Respawn()
+        {
+            m_dead = false;
+            m_gridRow = m_respawnRow;
+            m_gridCol = m_respawnCol;
+            SnapToGrid();
+        }
+
+        // Called by GameStateManager when a lethal collision is detected
+        void TriggerDeath()
+        {
+            if (m_dead) return;
+            m_dead = true;
+            if (m_lives > 0) --m_lives;
+            m_subject.NotifyObservers(GameEvent::LivesChanged, m_lives);
+            if (m_lives == 0)
+                m_subject.NotifyObservers(GameEvent::PlayerDied, m_playerIndex);
+        }
+
+        // Called when Slick or Sam is caught
+        void OnCaughtSlickSam()
+        {
+            AddScore(m_pointsSlickSam);
+        }
+
         void AddScore(int points)
         {
             m_score += points;
             m_subject.NotifyObservers(GameEvent::ScoreChanged, m_score);
-        }
-
-        void LoseLife()
-        {
-            if (m_lives <= 0) return;
-            --m_lives;
-            m_subject.NotifyObservers(GameEvent::LivesChanged, m_lives);
-            if (m_lives == 0)
-                m_subject.NotifyObservers(GameEvent::PlayerDied, 0);
-            m_gridRow = 0;
-            m_gridCol = 0;
-            SnapToGrid();
         }
 
         void AddObserver(IObserver* o) { m_subject.AddObserver(o); }
@@ -122,6 +117,27 @@ namespace dae
             m_hopDuration = 0.3f;
             m_hopPhase = 0.f;
             m_hopping = true;
+            m_hopOffEdge = false;
+        }
+
+        void BeginHopOffEdge(int destRow, int destCol, int dir)
+        {
+            auto* sheet = GetOwner()->GetComponent<SpritesheetComponent>();
+            int srcW = sheet ? sheet->GetFrameWidth() : 17;
+            int srcH = sheet ? sheet->GetFrameHeight() : 16;
+            m_fromPos = GridToCharacterPos(m_gridRow, m_gridCol, srcW, srcH);
+            // Use the extrapolated out-of-bounds position as hop target
+            m_toPos = GridToCharacterPos(destRow, destCol, srcW, srcH);
+            m_destRow = destRow;
+            m_destCol = destCol;
+            m_lastDir = dir;
+            m_hopDuration = 0.3f;
+            m_hopPhase = 0.f;
+            m_hopping = true;
+            m_hopOffEdge = true;
+            // Save current position as respawn point (the tile they jumped from)
+            m_respawnRow = m_gridRow;
+            m_respawnCol = m_gridCol;
         }
 
         void ApplyArcPosition(float t)
@@ -132,21 +148,7 @@ namespace dae
             GetOwner()->SetLocalPosition(x, y + arcY);
         }
 
-        void OnLanded()
-        {
-            if (m_grid)
-            {
-                auto* cube = m_grid->GetCube(m_gridRow, m_gridCol);
-                if (cube)
-                {
-                    bool wasTarget = cube->IsTarget();
-                    cube->Step();
-                    if (!wasTarget && cube->IsTarget())
-                        AddScore(25);
-                }
-            }
-            m_subject.NotifyObservers(GameEvent::PlayerMoved, 0);
-        }
+        void OnLanded();
 
         void UpdateSprite(int dir)
         {
@@ -164,18 +166,27 @@ namespace dae
             GetOwner()->SetLocalPosition(pos.x, pos.y);
         }
 
+        Scene* m_scene{ nullptr };
         PyramidGrid* m_grid{ nullptr };
 
+        int m_playerIndex;
         int m_gridRow;
         int m_gridCol;
+        int m_respawnRow;
+        int m_respawnCol;
         int m_lives;
         int m_score{ 0 };
+        int m_pointsPerCubeChange{ 25 };
+        int m_pointsSlickSam{ 300 };
+        float m_freezeDuration{ 1.f };
         Subject m_subject;
 
         int m_pendingDirection{ 0 };
         bool m_hasPendingMove{ false };
+        bool m_dead{ false };
 
         bool m_hopping{ false };
+        bool m_hopOffEdge{ false };
         float m_hopPhase{ 0.f };
         float m_hopDuration{ 0.3f };
         glm::vec2 m_fromPos{ 0.f, 0.f };

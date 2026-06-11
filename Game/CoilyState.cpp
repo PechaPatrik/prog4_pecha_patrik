@@ -22,6 +22,9 @@ namespace dae
         if (m_groundTimer < m_hopInterval) return nullptr;
         m_groundTimer = 0.f;
 
+        if (coily.GetGridRow() == 6)
+            return std::make_unique<CoilySnakeState>(m_hopInterval);
+
         int row = coily.GetGridRow();
         int col = coily.GetGridCol();
 
@@ -44,10 +47,8 @@ namespace dae
         return nullptr;
     }
 
-    std::unique_ptr<CoilyBaseState> CoilyEggState::OnLanded(CoilyComponent& coily)
+    std::unique_ptr<CoilyBaseState> CoilyEggState::OnLanded(CoilyComponent&)
     {
-        if (coily.GetGridRow() == 6)
-            return std::make_unique<CoilySnakeState>(m_hopInterval);
         return nullptr;
     }
 

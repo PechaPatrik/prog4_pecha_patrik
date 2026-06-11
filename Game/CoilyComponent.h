@@ -12,14 +12,16 @@ namespace dae
 {
     static constexpr float COILY_ARC_HEIGHT = 12.f * PIXEL_SCALE;
 
+    class Scene;
+
     class CoilyComponent final : public Component
     {
     public:
-        explicit CoilyComponent(GameObject* pOwner, float hopInterval = 0.5f)
+        CoilyComponent(GameObject* pOwner, float hopInterval = 0.5f, int spawnRow = 0, int spawnCol = 0)
             : Component(pOwner)
             , m_state(std::make_unique<CoilyEggState>(hopInterval))
-            , m_gridRow(0)
-            , m_gridCol(0)
+            , m_gridRow(spawnRow)
+            , m_gridCol(spawnCol)
         {
         }
 
@@ -30,36 +32,11 @@ namespace dae
         CoilyComponent& operator=(const CoilyComponent&) = delete;
         CoilyComponent& operator=(CoilyComponent&&) = delete;
 
-        void Update(float deltaTime) override
-        {
-            if (m_hopping)
-            {
-                m_hopPhase += deltaTime / m_hopDuration;
-                if (m_hopPhase >= 1.f)
-                {
-                    m_hopPhase = 1.f;
-                    m_hopping = false;
-                    m_gridRow = m_destRow;
-                    m_gridCol = m_destCol;
-                    ApplyArcPosition(1.f);
-                    auto newState = m_state->OnLanded(*this);
-                    if (newState)
-                        m_state = std::move(newState);
-                }
-                else
-                {
-                    ApplyArcPosition(m_hopPhase);
-                }
-            }
-            else
-            {
-                auto newState = m_state->Update(deltaTime, *this);
-                if (newState)
-                    m_state = std::move(newState);
-            }
+        void SetQbert(QbertPlayerComponent* qbert) { m_qbert = qbert; }
+        void SetScene(Scene* scene) { m_scene = scene; }
+        void SetFreezeDuration(float d) { m_freezeDuration = d; }
 
-            UpdateSprite();
-        }
+        void Update(float deltaTime) override;
 
         // Called by state. Duration is the air-phase duration (half the total hop interval).
         void BeginHop(int destRow, int destCol, float hopInterval)
@@ -76,10 +53,7 @@ namespace dae
             m_hopping = true;
         }
 
-        void SetQbert(QbertPlayerComponent* qbert) { m_qbert = qbert; }
-
-        bool IsHopping() const { return m_hopping; }
-
+        bool IsHopping() const { return m_introFalling || m_hopping; }
         int GetGridRow() const { return m_gridRow; }
         int GetGridCol() const { return m_gridCol; }
 
@@ -106,6 +80,8 @@ namespace dae
         }
 
         QbertPlayerComponent* m_qbert{ nullptr };
+        Scene* m_scene{ nullptr };
+        float m_freezeDuration{ 1.f };
 
         std::unique_ptr<CoilyBaseState> m_state;
         int m_gridRow;
@@ -118,5 +94,14 @@ namespace dae
         glm::vec2 m_toPos{ 0.f, 0.f };
         int m_destRow{ 0 };
         int m_destCol{ 0 };
+
+        // Intro fall from above to spawn tile
+        bool m_introFalling{ true };
+        bool m_introInitialized{ false };
+        glm::vec2 m_introFrom{ 0.f, 0.f };
+        glm::vec2 m_introTo{ 0.f, 0.f };
+        float m_introSpeed{ 400.f };
+        float m_introProgress{ 0.f };
+        float m_introLength{ 1.f };
     };
 }
