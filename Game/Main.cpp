@@ -42,6 +42,7 @@ static int g_currentLevel = 0;
 static int g_currentRound = 0;
 static fs::path g_dataLocation;
 static dae::PyramidGrid g_pyramidGrid;
+static dae::GameConfig g_gameConfig;
 
 static const std::array<const char*, LEVEL_COUNT> LEVEL_FILES =
 {
@@ -180,20 +181,22 @@ static void LoadLevel(int levelIndex, int round)
     auto* qbert = qbertGo->AddComponent<dae::QbertPlayerComponent>(0, 0, 0, 3);
     qbert->SetPyramidGrid(&g_pyramidGrid);
     qbert->SetScene(&scene);
-    qbert->SetFreezeDuration(levelData.freezeDuration);
-    qbert->SetPointsPerCubeChange(levelData.pointsPerCubeChange);
-    qbert->SetPointsSlickSam(levelData.pointsSlickSam);
+    qbert->SetFreezeDuration(g_gameConfig.freezeDuration);
+    qbert->SetPointsPerCubeChange(g_gameConfig.pointsPerCubeChange);
+    qbert->SetPointsSlickSam(g_gameConfig.pointsSlickSam);
     qbert->AddObserver(scoreObs);
     qbert->AddObserver(livesDisplay);
-    scene.Add(std::move(qbertGo));
 
     gsm.RegisterPlayer(qbert);
 
+    // Spawner added before Q*bert so Q*bert renders on top of all enemies and discs
     auto gsmAndSpawnerGo = std::make_unique<dae::GameObject>();
     gsmAndSpawnerGo->AddComponent<dae::GsmUpdaterComponent>(&scene);
     gsmAndSpawnerGo->AddComponent<dae::EnemySpawnerComponent>(
-        levelData, &g_pyramidGrid, &scene, gsm.GetPlayers(), round);
+        levelData, g_gameConfig, &g_pyramidGrid, &scene, gsm.GetPlayers(), round);
     scene.Add(std::move(gsmAndSpawnerGo));
+
+    scene.Add(std::move(qbertGo));
 
     input.BindKeyboardCommand(SDL_SCANCODE_W, dae::Controller::KeyState::Down,
         std::make_unique<dae::QbertMoveCommand>(qbert, 0));
@@ -236,6 +239,8 @@ int main(int, char* [])
     dae::ServiceLocator::RegisterSoundSystem(std::move(soundSystem));
 
     std::srand(static_cast<unsigned int>(std::time(nullptr)));
+
+    g_gameConfig = dae::LoadGameConfig((g_dataLocation / "game_config.json").string());
 
     engine.Run([]()
         {

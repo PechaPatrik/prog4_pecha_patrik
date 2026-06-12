@@ -1,8 +1,10 @@
 #include "GameStateManager.h"
 #include <algorithm>
+#include <cmath>
+#include <climits>
 #include "QbertPlayerComponent.h"
+#include "CoilyComponent.h"
 #include "ImageComponent.h"
-
 #include "Scene.h"
 #include "GameObject.h"
 #include "GameScale.h"
@@ -18,6 +20,10 @@ namespace dae
         m_curseGameObject = nullptr;
         m_dyingPlayer = nullptr;
         m_respawnCallbacks.clear();
+        m_discRiding = false;
+        m_discRideTimer = 0.f;
+        m_discRider = nullptr;
+        m_discScene = nullptr;
     }
 
     void GameStateManager::RegisterPlayer(QbertPlayerComponent* player)
@@ -63,40 +69,195 @@ namespace dae
         scene->Add(std::move(curseGo));
     }
 
-    void GameStateManager::Update(float deltaTime, Scene* scene)
+    bool GameStateManager::CoilyCanReachDisc(int discRow, int discCol, float flightDuration) const
     {
-        (void)scene;
-        if (!m_frozen) return;
-
-        m_freezeTimer += deltaTime;
-        if (m_freezeTimer < m_freezeDuration) return;
-
-        m_frozen = false;
-
-        if (m_curseGameObject)
-        {
-            m_curseGameObject->MarkForRemoval();
-            m_curseGameObject = nullptr;
-        }
-
-        // Remove all enemies from the scene
         for (auto& entry : m_enemies)
+        {
+            if (entry.type != EnemyEntry::Type::Coily) continue;
+
+            auto* coily = static_cast<CoilyComponent*>(entry.component);
+            if (coily->IsEgg()) return false;
+
+            int row = entry.getRow();
+            int col = entry.getCol();
+            int dist = std::abs(row - discRow) + std::abs(col - discCol) - 1;
+            float hopInterval = coily->GetHopInterval();
+            float timeNeeded = static_cast<float>(dist) * hopInterval;
+            return timeNeeded <= flightDuration;
+        }
+        return false;
+    }
+
+    void GameStateManager::DismissNonCoilyEnemies()
+    {
+        for (auto& entry : m_enemies)
+        {
+            if (entry.type == EnemyEntry::Type::Coily) continue;
+            if (entry.triggerFall)
+                entry.triggerFall();
+            else
+                entry.markForRemoval();
+        }
+        m_enemies.erase(
+            std::remove_if(m_enemies.begin(), m_enemies.end(),
+                [](const EnemyEntry& e) { return e.type != EnemyEntry::Type::Coily; }),
+            m_enemies.end());
+    }
+
+    void GameStateManager::TriggerDiscRide(QbertPlayerComponent* rider, Scene* scene,
+        int discRow, int discCol, float flightDuration,
+        int pointsCoilyDisc, float freezeDuration)
+    {
+        if (m_discRiding || m_frozen) return;
+
+        m_discRiding = true;
+        m_discRideTimer = 0.f;
+        // Total duration = flight (rise + hover) + fixed drop phase
+        m_discRideDuration = flightDuration + DISC_DROP_DURATION;
+        m_discRider = rider;
+        m_pointsCoilyDisc = pointsCoilyDisc;
+        m_discFreezeDuration = freezeDuration;
+        m_discScene = scene;
+
+        DismissNonCoilyEnemies();
+
+        bool coilyWillPursue = CoilyCanReachDisc(discRow, discCol, flightDuration);
+        if (!coilyWillPursue)
+        {
+            for (auto& entry : m_enemies)
+            {
+                if (entry.type != EnemyEntry::Type::Coily) continue;
+                auto* coily = static_cast<CoilyComponent*>(entry.component);
+                coily->ForceJumpOff();
+            }
+        }
+        else
+        {
+            for (auto& entry : m_enemies)
+            {
+                if (entry.type != EnemyEntry::Type::Coily) continue;
+                auto* coily = static_cast<CoilyComponent*>(entry.component);
+                coily->SetDiscTarget(discRow, discCol);
+            }
+        }
+    }
+
+    void GameStateManager::OnCoilyFellDuringDisc(QbertPlayerComponent* nearestPlayer) const
+    {
+        if (!m_discRiding) return;
+        if (nearestPlayer)
+            nearestPlayer->AddScore(m_pointsCoilyDisc);
+    }
+
+    void GameStateManager::FinishDiscRide(Scene* scene)
+    {
+        m_discRiding = false;
+
+        for (auto& entry : m_enemies)
+        {
+            if (entry.type == EnemyEntry::Type::Coily)
+            {
+                // If coily is chasing the disc tile she manages her own removal
+                auto* coily = static_cast<CoilyComponent*>(entry.component);
+                if (coily->IsDoingDiscChase()) continue;
+            }
             entry.markForRemoval();
+        }
         m_enemies.clear();
 
-        for (auto* player : m_players)
-            player->Respawn();
+        if (m_discRider)
+            m_discRider->LandFromDisc();
 
         for (auto& cb : m_respawnCallbacks)
             cb();
 
-        m_dyingPlayer = nullptr;
+        m_discRider = nullptr;
+        m_discScene = nullptr;
+        (void)scene;
+    }
+
+    void GameStateManager::Update(float deltaTime, Scene* scene)
+    {
+        if (m_discRiding)
+        {
+            m_discRideTimer += deltaTime;
+            if (m_discRideTimer >= m_discRideDuration)
+                FinishDiscRide(scene);
+            return;
+        }
+
+        if (m_frozen)
+        {
+            m_freezeTimer += deltaTime;
+            if (m_freezeTimer < m_freezeDuration) return;
+
+            m_frozen = false;
+
+            if (m_curseGameObject)
+            {
+                m_curseGameObject->MarkForRemoval();
+                m_curseGameObject = nullptr;
+            }
+
+            for (auto& entry : m_enemies)
+                entry.markForRemoval();
+            m_enemies.clear();
+
+            for (auto* player : m_players)
+                player->Respawn();
+
+            for (auto& cb : m_respawnCallbacks)
+                cb();
+
+            m_dyingPlayer = nullptr;
+            return;
+        }
+
+        // Remove entries whose GameObjects have already been marked for removal
+        m_enemies.erase(
+            std::remove_if(m_enemies.begin(), m_enemies.end(),
+                [](const EnemyEntry& e) { return e.markedForRemoval; }),
+            m_enemies.end());
+
+        // Continuous overlap check: catches simultaneous-landing timing gaps
+        for (auto* player : m_players)
+        {
+            if (player->IsHopping() || player->IsDead() || player->IsOnDisc()) continue;
+            int pRow = player->GetGridRow();
+            int pCol = player->GetGridCol();
+
+            for (auto& entry : m_enemies)
+            {
+                if (entry.markedForRemoval || entry.isHopping()) continue;
+
+                int eRow = entry.getRow() + entry.collisionDRow;
+                int eCol = entry.getCol() + entry.collisionDCol;
+
+                if (eRow != pRow || eCol != pCol) continue;
+
+                if (entry.type == EnemyEntry::Type::SlickSam)
+                {
+                    entry.markedForRemoval = true;
+                    entry.markForRemoval();
+                    player->OnCaughtSlickSam();
+                }
+                else
+                {
+                    entry.markedForRemoval = true;
+                    glm::vec2 worldPos = player->GetDeathWorldPos();
+                    player->TriggerDeath();
+                    TriggerPlayerDeath(player, scene, worldPos.x, worldPos.y, entry.freezeDuration);
+                }
+                return;
+            }
+        }
     }
 
     void GameStateManager::CheckEnemyLandedAt(int row, int col, EnemyEntry& entry,
         Scene* scene, float freezeDuration)
     {
-        if (m_frozen) return;
+        if (m_frozen || m_discRiding) return;
+        if (entry.markedForRemoval) return;
 
         for (auto* player : m_players)
         {
@@ -105,13 +266,13 @@ namespace dae
 
             if (entry.type == EnemyEntry::Type::SlickSam)
             {
-                // Slick/Sam: player catches them, enemy is removed, player scores
+                entry.markedForRemoval = true;
                 entry.markForRemoval();
                 player->OnCaughtSlickSam();
             }
             else
             {
-                // Coily/Ugg/Wrongway: player dies
+                entry.markedForRemoval = true;
                 glm::vec2 worldPos = player->GetDeathWorldPos();
                 player->TriggerDeath();
                 TriggerPlayerDeath(player, scene, worldPos.x, worldPos.y, freezeDuration);
@@ -123,11 +284,11 @@ namespace dae
     void GameStateManager::CheckPlayerLandedAt(QbertPlayerComponent* player, int row, int col,
         Scene* scene, float freezeDuration)
     {
-        if (m_frozen) return;
+        if (m_frozen || m_discRiding) return;
 
         for (auto& entry : m_enemies)
         {
-            if (entry.isHopping()) continue;
+            if (entry.markedForRemoval || entry.isHopping()) continue;
 
             int eRow = entry.getRow() + entry.collisionDRow;
             int eCol = entry.getCol() + entry.collisionDCol;
@@ -136,11 +297,13 @@ namespace dae
 
             if (entry.type == EnemyEntry::Type::SlickSam)
             {
+                entry.markedForRemoval = true;
                 entry.markForRemoval();
                 player->OnCaughtSlickSam();
             }
             else
             {
+                entry.markedForRemoval = true;
                 glm::vec2 worldPos = player->GetDeathWorldPos();
                 player->TriggerDeath();
                 TriggerPlayerDeath(player, scene, worldPos.x, worldPos.y, freezeDuration);

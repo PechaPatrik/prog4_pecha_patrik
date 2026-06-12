@@ -15,8 +15,12 @@ namespace dae
             cfg.enabledPerRound.assign(roundCount, true);
 
         cfg.firstSpawnDelay = j.value("firstSpawnDelay", 5.f);
-        cfg.spawnRow = j.value("spawnRow", 0);
-        cfg.spawnCol = j.value("spawnCol", 0);
+
+        if (j.contains("spawnLocations"))
+        {
+            for (auto& loc : j["spawnLocations"])
+                cfg.spawnLocations.emplace_back(loc[0].get<int>(), loc[1].get<int>());
+        }
 
         if (j.contains("spawnIntervalMin"))
             cfg.spawnIntervalMin = j["spawnIntervalMin"].get<std::vector<float>>();
@@ -59,26 +63,42 @@ namespace dae
         else
             data.rule = LevelRule::SingleStep;
 
-        data.freezeDuration = j.value("freezeDuration", 1.f);
-
         if (j.contains("coily"))
             data.coily = ParseEnemyConfig(j["coily"], roundCount);
 
-        if (j.contains("uggWrongway"))
-            data.uggWrongway = ParseEnemyConfig(j["uggWrongway"], roundCount);
+        if (j.contains("ugg"))
+            data.ugg = ParseEnemyConfig(j["ugg"], roundCount);
+
+        if (j.contains("wrongway"))
+            data.wrongway = ParseEnemyConfig(j["wrongway"], roundCount);
 
         if (j.contains("slickSam"))
             data.slickSam = ParseEnemyConfig(j["slickSam"], roundCount);
 
-        if (j.contains("points"))
-        {
-            auto& pts = j["points"];
-            data.pointsPerCubeChange = pts.value("cubeChange", 25);
-            data.pointsCoilyDisc = pts.value("coilyDisc", 500);
-            data.pointsDiscRemaining = pts.value("discRemaining", 50);
-            data.pointsSlickSam = pts.value("slickSam", 300);
-        }
+        if (j.contains("discCountsPerRound"))
+            data.discCountsPerRound = j["discCountsPerRound"].get<std::vector<int>>();
+        else
+            data.discCountsPerRound.assign(roundCount, 2);
 
         return data;
+    }
+
+    GameConfig LoadGameConfig(const std::string& filePath)
+    {
+        std::ifstream file(filePath);
+        if (!file.is_open())
+            throw std::runtime_error("Could not open game config: " + filePath);
+
+        nlohmann::json j;
+        file >> j;
+
+        GameConfig cfg;
+        cfg.freezeDuration = j.value("freezeDuration", 1.5f);
+        cfg.discFlightDuration = j.value("discFlightDuration", 2.0f);
+        cfg.pointsPerCubeChange = j.value("pointsPerCubeChange", 25);
+        cfg.pointsCoilyDisc = j.value("pointsCoilyDisc", 500);
+        cfg.pointsDiscRemaining = j.value("pointsDiscRemaining", 50);
+        cfg.pointsSlickSam = j.value("pointsSlickSam", 300);
+        return cfg;
     }
 }

@@ -1,0 +1,8 @@
+{
+  "freezeDuration": 1.5,
+  "discFlightDuration": 2.0,
+  "pointsPerCubeChange": 25,
+  "pointsCoilyDisc": 500,
+  "pointsDiscRemaining": 50,
+  "pointsSlickSam": 300
+}

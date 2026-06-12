@@ -37,7 +37,6 @@ namespace dae
                 m_introFalling = false;
                 GetOwner()->SetLocalPosition(m_introTo.x, m_introTo.y);
 
-                // Check collision first; if Q*bert is here, remove self without reverting
                 auto& gsm = GameStateManager::GetInstance();
                 for (auto& entry : gsm.GetEnemies())
                 {
@@ -47,9 +46,15 @@ namespace dae
                         break;
                     }
                 }
-                // Only revert the tile if we are still alive after the collision check
                 if (!GetOwner()->IsMarkedForRemoval())
+                {
                     RevertCube();
+                    if (m_pendingFall)
+                    {
+                        m_pendingFall = false;
+                        BeginFall();
+                    }
+                }
             }
             else
             {
@@ -89,7 +94,6 @@ namespace dae
                 m_gridRow = m_destRow;
                 m_gridCol = m_destCol;
 
-                // Check collision first; if Q*bert is here, remove without reverting
                 auto& gsm = GameStateManager::GetInstance();
                 for (auto& entry : gsm.GetEnemies())
                 {
@@ -99,9 +103,15 @@ namespace dae
                         break;
                     }
                 }
-                // Only revert if still alive
                 if (!GetOwner()->IsMarkedForRemoval())
+                {
                     RevertCube();
+                    if (m_pendingFall)
+                    {
+                        m_pendingFall = false;
+                        BeginFall();
+                    }
+                }
             }
             else
             {

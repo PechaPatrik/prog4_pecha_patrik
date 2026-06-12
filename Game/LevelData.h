@@ -2,6 +2,7 @@
 #include "CubeTileState.h"
 #include <vector>
 #include <string>
+#include <utility>
 
 namespace dae
 {
@@ -9,11 +10,11 @@ namespace dae
     {
         std::vector<bool> enabledPerRound;
         float firstSpawnDelay{ 5.f };
+        // Each entry is {row, col}
+        std::vector<std::pair<int, int>> spawnLocations;
         std::vector<float> spawnIntervalMin;
         std::vector<float> spawnIntervalMax;
         std::vector<float> hopIntervals;
-        int spawnRow{ 0 };
-        int spawnCol{ 0 };
     };
 
     struct LevelData
@@ -22,11 +23,19 @@ namespace dae
         LevelRule rule{};
 
         EnemySpawnConfig coily;
-        EnemySpawnConfig uggWrongway;
+        // Ugg and Wrongway are separate so their spawn points can be configured independently
+        EnemySpawnConfig ugg;
+        EnemySpawnConfig wrongway;
         EnemySpawnConfig slickSam;
 
-        float freezeDuration{ 1.f };
+        // Number of discs to spawn per round index
+        std::vector<int> discCountsPerRound;
+    };
 
+    struct GameConfig
+    {
+        float freezeDuration{ 1.5f };
+        float discFlightDuration{ 2.0f };
         int pointsPerCubeChange{ 25 };
         int pointsCoilyDisc{ 500 };
         int pointsDiscRemaining{ 50 };
@@ -34,4 +43,5 @@ namespace dae
     };
 
     LevelData LoadLevelData(const std::string& filePath);
+    GameConfig LoadGameConfig(const std::string& filePath);
 }

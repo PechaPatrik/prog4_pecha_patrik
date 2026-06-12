@@ -47,7 +47,6 @@ namespace dae
                 m_introFalling = false;
                 GetOwner()->SetLocalPosition(m_introTo.x, m_introTo.y);
 
-                // Check collision on arrival at spawn tile
                 auto& gsm = GameStateManager::GetInstance();
                 for (auto& entry : gsm.GetEnemies())
                 {
@@ -58,6 +57,12 @@ namespace dae
                         gsm.CheckEnemyLandedAt(checkRow, checkCol, entry, m_scene, m_freezeDuration);
                         break;
                     }
+                }
+
+                if (m_pendingFall)
+                {
+                    m_pendingFall = false;
+                    BeginFall();
                 }
             }
             else
@@ -94,19 +99,7 @@ namespace dae
 
                 if (!IsOnPyramid(m_destRow, m_destCol))
                 {
-                    m_falling = true;
-                    glm::vec2 wp = GetOwner()->GetWorldPosition();
-                    m_fallPos = { wp.x, wp.y };
-                    static constexpr float PI = 3.14159265f;
-                    float linX = m_toPos.x - m_fromPos.x;
-                    float linY = m_toPos.y - m_fromPos.y;
-                    float arcDerX = (m_isLeftSide ? -1.f : 1.f) * UGG_ARC_DIST * (-PI);
-                    float arcDerY = UGG_ARC_DIST * (-PI);
-                    float vx = linX + arcDerX;
-                    float vy = linY + arcDerY;
-                    float len = std::sqrt(vx * vx + vy * vy);
-                    if (len > 0.f) { vx /= len; vy /= len; }
-                    m_fallDir = { vx, vy };
+                    BeginFall();
                     return;
                 }
 
@@ -123,6 +116,12 @@ namespace dae
                         gsm.CheckEnemyLandedAt(checkRow, checkCol, entry, m_scene, m_freezeDuration);
                         break;
                     }
+                }
+
+                if (m_pendingFall)
+                {
+                    m_pendingFall = false;
+                    BeginFall();
                 }
             }
             else

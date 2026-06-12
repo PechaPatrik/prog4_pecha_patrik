@@ -25,15 +25,13 @@ namespace dae
     {
     public:
         // isSlick: true = Slick (spritesheet row 0), false = Sam (spritesheet row 1)
-        // isLeftSide: true spawns at row 1 col 0, false spawns at row 1 col 1
-        SlickSamComponent(GameObject* pOwner, bool isSlick, bool isLeftSide, float hopInterval = 0.5f,
-            int spawnRow = 1, int spawnCol = -1)
+        SlickSamComponent(GameObject* pOwner, bool isSlick, float hopInterval = 0.5f,
+            int spawnRow = 1, int spawnCol = 0)
             : Component(pOwner)
             , m_spriteRow(isSlick ? 0 : 1)
-            , m_isLeftSide(isLeftSide)
             , m_hopInterval(hopInterval)
             , m_gridRow(spawnRow)
-            , m_gridCol(spawnCol < 0 ? (isLeftSide ? 0 : 1) : spawnCol)
+            , m_gridCol(spawnCol)
         {
         }
 
@@ -52,6 +50,17 @@ namespace dae
         int GetGridRow() const { return m_gridRow; }
         int GetGridCol() const { return m_gridCol; }
         bool IsHopping() const { return m_introFalling || m_hopping; }
+
+        void TriggerFall()
+        {
+            if (m_falling) return;
+            if (m_hopping || m_introFalling)
+            {
+                m_pendingFall = true;
+                return;
+            }
+            BeginFall();
+        }
 
         glm::vec2 GetInitialPos(int charSrcW, int charSrcH) const
         {
@@ -140,7 +149,6 @@ namespace dae
 
         int m_spriteRow;
         int m_spriteCol{ 0 };
-        bool m_isLeftSide;
         float m_hopInterval;
 
         int m_gridRow;
@@ -159,6 +167,7 @@ namespace dae
         glm::vec2 m_fallPos{ 0.f, 0.f };
         float m_fallSpeed{ SLICK_SAM_FALL_SPEED_INIT };
 
+        bool m_pendingFall{ false };
         bool m_initialized{ false };
 
         // Intro fall from above to spawn tile

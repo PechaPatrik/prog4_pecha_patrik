@@ -46,19 +46,28 @@ namespace dae
         void SetScene(Scene* scene) { m_scene = scene; }
         void SetFreezeDuration(float d) { m_freezeDuration = d; }
 
-        // Collision tile offset: left=(0,+1), right=(+1,+1)
         int GetCollisionDRow() const { return 1; }
         int GetCollisionDCol() const { return m_isLeftSide ? 0 : 1; }
 
         int GetGridRow() const { return m_gridRow; }
         int GetGridCol() const { return m_gridCol; }
 
+        void TriggerFall()
+        {
+            if (m_falling) return;
+            if (m_hopping || m_introFalling)
+            {
+                m_pendingFall = true;
+                return;
+            }
+            BeginFall();
+        }
+
         glm::vec2 GetInitialPos(int charSrcW, int charSrcH) const
         {
             return GetSidePos(m_gridRow, m_gridCol, charSrcW, charSrcH);
         }
 
-        // Returns true while not yet settled on a tile (intro slide, hop arc, or death fall)
         bool IsHopping() const { return m_introFalling || m_hopping || m_falling; }
 
         void Update(float deltaTime) override;
@@ -87,6 +96,17 @@ namespace dae
 
             UpdateSprite();
             BeginHop(newRow, newCol);
+        }
+
+        void BeginFall()
+        {
+            m_falling = true;
+            glm::vec2 wp = GetOwner()->GetWorldPosition();
+            m_fallPos = { wp.x, wp.y };
+            static constexpr float SIN120 = 0.8660254f;
+            static constexpr float COS120 = 0.5f;
+            m_fallDir = { m_isLeftSide ? SIN120 : -SIN120, -COS120 };
+            m_fallSpeed = 0.f;
         }
 
         void BeginHop(int destRow, int destCol)
@@ -125,11 +145,11 @@ namespace dae
         glm::vec2 GetSidePos(int row, int col, int charSrcW, int) const
         {
             glm::vec2 cubePos = GridToScreen(row, col);
-            float charW = charSrcW * PIXEL_SCALE;
+            float charW = static_cast<float>(charSrcW) * PIXEL_SCALE;
             float anchorX = m_isLeftSide
                 ? cubePos.x + 8.f * PIXEL_SCALE
-                : cubePos.x + (CUBE_SRC_W - 8) * PIXEL_SCALE;
-            float anchorY = cubePos.y + (CUBE_SRC_H - 12) * PIXEL_SCALE;
+                : cubePos.x + static_cast<float>(CUBE_SRC_W - 8) * PIXEL_SCALE;
+            float anchorY = cubePos.y + static_cast<float>(CUBE_SRC_H - 12) * PIXEL_SCALE;
             float spriteX = m_isLeftSide ? anchorX - charW : anchorX;
             return { spriteX, anchorY };
         }
@@ -162,7 +182,8 @@ namespace dae
         bool m_falling{ false };
         glm::vec2 m_fallPos{ 0.f, 0.f };
         glm::vec2 m_fallDir{ 0.f, 1.f };
-        float m_fallSpeed{ UGG_FALL_SPEED };
+        float m_fallSpeed{ 0.f };
+        bool m_pendingFall{ false };
         bool m_initialized{ false };
 
         bool m_introFalling{ true };

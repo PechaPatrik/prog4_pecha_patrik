@@ -4,17 +4,20 @@
 #include "Subject.h"
 #include "SpritesheetComponent.h"
 #include "QbertPyramid.h"
+#include <vector>
 #include <cmath>
 
 namespace dae
 {
     static constexpr float QBERT_ARC_HEIGHT = 12.f * PIXEL_SCALE;
+    static constexpr float DISC_DROP_DURATION = 0.25f;
 
     // direction: 0=up-right(W), 1=up-left(A), 2=down-right(D), 3=down-left(S), made to match spritesheet columns
     static const int QbertDRow[4] = { -1, -1,  1,  1 };
     static const int QbertDCol[4] = { 0, -1,  1,  0 };
 
     class Scene;
+    class DiscComponent;
 
     class QbertPlayerComponent final : public Component
     {
@@ -48,13 +51,14 @@ namespace dae
 
         void RequestMove(int direction)
         {
-            if (m_hopping || m_dead) return;
+            if (m_hopping || m_dead || m_onDisc) return;
             m_pendingDirection = direction;
             m_hasPendingMove = true;
         }
 
         bool IsHopping() const { return m_hopping; }
         bool IsDead() const { return m_dead; }
+        bool IsOnDisc() const { return m_onDisc; }
         int GetPlayerIndex() const { return m_playerIndex; }
         int GetGridRow() const { return m_gridRow; }
         int GetGridCol() const { return m_gridCol; }
@@ -68,7 +72,6 @@ namespace dae
             return { wp.x, wp.y };
         }
 
-        // Called by GameStateManager after freeze ends
         void Respawn()
         {
             m_dead = false;
@@ -77,7 +80,6 @@ namespace dae
             SnapToGrid();
         }
 
-        // Called by GameStateManager when a lethal collision is detected
         void TriggerDeath()
         {
             if (m_dead) return;
@@ -88,7 +90,53 @@ namespace dae
                 m_subject.NotifyObservers(GameEvent::PlayerDied, m_playerIndex);
         }
 
-        // Called when Slick or Sam is caught
+        void LandFromDisc()
+        {
+            m_onDisc = false;
+            m_discRiding = false;
+            m_disc = nullptr;
+            m_gridRow = 0;
+            m_gridCol = 0;
+            m_respawnRow = 0;
+            m_respawnCol = 0;
+            SnapToGrid();
+            if (m_grid)
+            {
+                auto* cube = m_grid->GetCube(0, 0);
+                if (cube)
+                {
+                    bool wasTarget = cube->IsTarget();
+                    cube->Step();
+                    if (!wasTarget && cube->IsTarget())
+                        AddScore(m_pointsPerCubeChange);
+                }
+            }
+            m_subject.NotifyObservers(GameEvent::PlayerMoved, m_playerIndex);
+        }
+
+        void StartDiscRide(glm::vec2 playerOnDiscPos, glm::vec2 hoverPos,
+            float flightDuration, DiscComponent* disc)
+        {
+            m_onDisc = true;
+            m_discRiding = true;
+            m_discRideTimer = 0.f;
+            m_discDespawned = false;
+            m_disc = disc;
+
+            m_discPhase1Duration = flightDuration * 0.5f;
+            m_discPhase2Duration = flightDuration * 0.5f;
+
+            m_discStartPos = playerOnDiscPos;
+            m_discHoverPos = hoverPos;
+
+            auto* sheet = GetOwner()->GetComponent<SpritesheetComponent>();
+            int srcW = sheet ? sheet->GetFrameWidth() : 17;
+            int srcH = sheet ? sheet->GetFrameHeight() : 16;
+            m_discDropPos = GridToCharacterPos(0, 0, srcW, srcH);
+
+            GetOwner()->SetLocalPosition(playerOnDiscPos.x, playerOnDiscPos.y);
+        }
+
         void OnCaughtSlickSam()
         {
             AddScore(m_pointsSlickSam);
@@ -102,6 +150,9 @@ namespace dae
 
         void AddObserver(IObserver* o) { m_subject.AddObserver(o); }
         void RemoveObserver(IObserver* o) { m_subject.RemoveObserver(o); }
+
+        void RegisterDisc(DiscComponent* disc) { m_discs.push_back(disc); }
+        void ClearDiscs() { m_discs.clear(); }
 
     private:
         void BeginHop(int destRow, int destCol, int dir)
@@ -126,7 +177,6 @@ namespace dae
             int srcW = sheet ? sheet->GetFrameWidth() : 17;
             int srcH = sheet ? sheet->GetFrameHeight() : 16;
             m_fromPos = GridToCharacterPos(m_gridRow, m_gridCol, srcW, srcH);
-            // Use the extrapolated out-of-bounds position as hop target
             m_toPos = GridToCharacterPos(destRow, destCol, srcW, srcH);
             m_destRow = destRow;
             m_destCol = destCol;
@@ -135,7 +185,6 @@ namespace dae
             m_hopPhase = 0.f;
             m_hopping = true;
             m_hopOffEdge = true;
-            // Save current position as respawn point (the tile they jumped from)
             m_respawnRow = m_gridRow;
             m_respawnCol = m_gridCol;
         }
@@ -178,7 +227,7 @@ namespace dae
         int m_score{ 0 };
         int m_pointsPerCubeChange{ 25 };
         int m_pointsSlickSam{ 300 };
-        float m_freezeDuration{ 1.f };
+        float m_freezeDuration{ 1.5f };
         Subject m_subject;
 
         int m_pendingDirection{ 0 };
@@ -194,5 +243,18 @@ namespace dae
         int m_destRow{ 0 };
         int m_destCol{ 0 };
         int m_lastDir{ 2 };
+
+        bool m_onDisc{ false };
+        bool m_discRiding{ false };
+        bool m_discDespawned{ false };
+        float m_discRideTimer{ 0.f };
+        float m_discPhase1Duration{ 1.f };
+        float m_discPhase2Duration{ 1.f };
+        glm::vec2 m_discStartPos{ 0.f, 0.f };
+        glm::vec2 m_discHoverPos{ 0.f, 0.f };
+        glm::vec2 m_discDropPos{ 0.f, 0.f };
+        DiscComponent* m_disc{ nullptr };
+
+        std::vector<DiscComponent*> m_discs;
     };
 }

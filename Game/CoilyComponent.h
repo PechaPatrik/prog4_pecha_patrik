@@ -20,6 +20,7 @@ namespace dae
         CoilyComponent(GameObject* pOwner, float hopInterval = 0.5f, int spawnRow = 0, int spawnCol = 0)
             : Component(pOwner)
             , m_state(std::make_unique<CoilyEggState>(hopInterval))
+            , m_hopInterval(hopInterval)
             , m_gridRow(spawnRow)
             , m_gridCol(spawnCol)
         {
@@ -38,7 +39,6 @@ namespace dae
 
         void Update(float deltaTime) override;
 
-        // Called by state. Duration is the air-phase duration (half the total hop interval).
         void BeginHop(int destRow, int destCol, float hopInterval)
         {
             auto* sheet = GetOwner()->GetComponent<SpritesheetComponent>();
@@ -56,18 +56,54 @@ namespace dae
         bool IsHopping() const { return m_introFalling || m_hopping; }
         int GetGridRow() const { return m_gridRow; }
         int GetGridCol() const { return m_gridCol; }
-
         bool IsEgg() const { return m_state->IsEgg(); }
+        float GetHopInterval() const { return m_hopInterval; }
 
-        int GetTargetRow() const { return m_qbert ? m_qbert->GetGridRow() : 0; }
-        int GetTargetCol() const { return m_qbert ? m_qbert->GetGridCol() : 0; }
+        int GetTargetRow() const
+        {
+            if (m_hasDiscTarget) return m_discNeighbourRow;
+            return m_qbert ? m_qbert->GetGridRow() : 0;
+        }
+        int GetTargetCol() const
+        {
+            if (m_hasDiscTarget) return m_discNeighbourCol;
+            return m_qbert ? m_qbert->GetGridCol() : 0;
+        }
+
+        void ForceJumpOff();
+
+        void SetDiscTarget(int discRow, int discCol)
+        {
+            m_hasDiscTarget = true;
+            m_discTileRow = discRow;
+            m_discTileCol = discCol;
+
+            if (discCol < 0)
+            {
+                // Left-side disc at [discRow][-1]
+                m_discNeighbourRow = discRow + 1;
+                m_discNeighbourCol = 0;
+                m_discFinalDRow = (discRow >= 0) ? 0 : -1;
+                m_discFinalDCol = -1;
+            }
+            else
+            {
+                // Right-side disc at [discRow][discRow+1]
+                m_discNeighbourRow = discRow + 1;
+                m_discNeighbourCol = discCol;
+                m_discFinalDRow = (discRow >= 0) ? 0 : -1;
+                m_discFinalDCol = 1;
+            }
+        }
+
+        // True while coily is doing the disc-chase fall; must not be removed by FinishDiscRide
+        bool IsDoingDiscChase() const { return m_awardDiscPointsOnFall; }
 
     private:
         void ApplyArcPosition(float t)
         {
             float x = m_fromPos.x + (m_toPos.x - m_fromPos.x) * t;
             float y = m_fromPos.y + (m_toPos.y - m_fromPos.y) * t;
-            // sin arc: 0 at t=0, peak at t=0.5, 0 at t=1
             float arcY = -COILY_ARC_HEIGHT * std::sin(t * 3.14159265f);
             GetOwner()->SetLocalPosition(x, y + arcY);
         }
@@ -79,11 +115,14 @@ namespace dae
                 sheet->SetFrame(m_state->GetCol(m_hopping), 0);
         }
 
+        void BeginFallOff(int dRow, int dCol);
+
         QbertPlayerComponent* m_qbert{ nullptr };
         Scene* m_scene{ nullptr };
-        float m_freezeDuration{ 1.f };
+        float m_freezeDuration{ 1.5f };
 
         std::unique_ptr<CoilyBaseState> m_state;
+        float m_hopInterval;
         int m_gridRow;
         int m_gridCol;
 
@@ -95,7 +134,6 @@ namespace dae
         int m_destRow{ 0 };
         int m_destCol{ 0 };
 
-        // Intro fall from above to spawn tile
         bool m_introFalling{ true };
         bool m_introInitialized{ false };
         glm::vec2 m_introFrom{ 0.f, 0.f };
@@ -103,5 +141,18 @@ namespace dae
         float m_introSpeed{ 400.f };
         float m_introProgress{ 0.f };
         float m_introLength{ 1.f };
+
+        bool m_fallingOff{ false };
+        bool m_awardDiscPointsOnFall{ false };
+        glm::vec2 m_fallPos{ 0.f, 0.f };
+        float m_fallSpeed{ 0.f };
+
+        bool m_hasDiscTarget{ false };
+        int m_discTileRow{ 0 };
+        int m_discTileCol{ 0 };
+        int m_discNeighbourRow{ 0 };
+        int m_discNeighbourCol{ 0 };
+        int m_discFinalDRow{ 0 };
+        int m_discFinalDCol{ 0 };
     };
 }

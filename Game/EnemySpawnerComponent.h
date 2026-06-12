@@ -7,10 +7,13 @@
 #include "CoilyComponent.h"
 #include "UggWrongwayComponent.h"
 #include "SlickSamComponent.h"
+#include "DiscComponent.h"
 #include "SpritesheetComponent.h"
 #include "Scene.h"
 #include <cstdlib>
 #include <cmath>
+#include <vector>
+#include <utility>
 
 namespace dae
 {
@@ -25,17 +28,20 @@ namespace dae
     {
     public:
         EnemySpawnerComponent(GameObject* pOwner, const LevelData& levelData,
+            const GameConfig& gameConfig,
             PyramidGrid* grid, Scene* scene,
             const std::vector<QbertPlayerComponent*>& players,
             int round = 0)
             : Component(pOwner)
             , m_levelData(levelData)
+            , m_gameConfig(gameConfig)
             , m_grid(grid)
             , m_scene(scene)
             , m_players(players)
             , m_round(round)
         {
             ResetTimers();
+            SpawnDiscs();
             GameStateManager::GetInstance().RegisterRespawnCallback([this]() { ResetTimers(); });
         }
 
@@ -49,9 +55,11 @@ namespace dae
         void Update(float deltaTime) override
         {
             if (GameStateManager::GetInstance().IsFrozen()) return;
+            if (GameStateManager::GetInstance().IsDiscRiding()) return;
 
             TickCoily(deltaTime);
-            TickUggWrongway(deltaTime);
+            TickUgg(deltaTime);
+            TickWrongway(deltaTime);
             TickSlickSam(deltaTime);
         }
 
@@ -73,10 +81,15 @@ namespace dae
 
             m_coilyAlive = false;
 
-            if (IsEnabledForRound(m_levelData.uggWrongway))
-                m_uggTimer = m_levelData.uggWrongway.firstSpawnDelay;
+            if (IsEnabledForRound(m_levelData.ugg))
+                m_uggTimer = m_levelData.ugg.firstSpawnDelay;
             else
                 m_uggTimer = -1.f;
+
+            if (IsEnabledForRound(m_levelData.wrongway))
+                m_wrongwayTimer = m_levelData.wrongway.firstSpawnDelay;
+            else
+                m_wrongwayTimer = -1.f;
 
             if (IsEnabledForRound(m_levelData.slickSam))
                 m_ssTimer = m_levelData.slickSam.firstSpawnDelay;
@@ -106,9 +119,66 @@ namespace dae
             return (r < static_cast<int>(hops.size())) ? hops[r] : 1.f;
         }
 
+        std::pair<int, int> RandomSpawnLocation(const EnemySpawnConfig& cfg) const
+        {
+            if (cfg.spawnLocations.empty()) return { 0, 0 };
+            int idx = rand() % static_cast<int>(cfg.spawnLocations.size());
+            return cfg.spawnLocations[idx];
+        }
+
         QbertPlayerComponent* GetFirstPlayer() const
         {
             return m_players.empty() ? nullptr : m_players[0];
+        }
+
+        void SpawnDiscs()
+        {
+            int r = RoundIndex();
+            int discCount = (r < static_cast<int>(m_levelData.discCountsPerRound.size()))
+                ? m_levelData.discCountsPerRound[r] : 2;
+
+            int colorGroup = (r < static_cast<int>(m_levelData.roundColorColumns.size()))
+                ? m_levelData.roundColorColumns[r] : 0;
+
+            // Build all possible disc positions: rows -1 through 5, left col=-1 or right col=row+1
+            std::vector<std::pair<int, int>> candidates;
+            for (int row = -1; row <= 5; ++row)
+            {
+                candidates.emplace_back(row, -1);
+                candidates.emplace_back(row, row + 1);
+            }
+
+            // Shuffle and pick discCount unique positions
+            for (int i = static_cast<int>(candidates.size()) - 1; i > 0; --i)
+            {
+                int j = rand() % (i + 1);
+                std::swap(candidates[i], candidates[j]);
+            }
+
+            int placed = 0;
+            for (auto& [dRow, dCol] : candidates)
+            {
+                if (placed >= discCount) break;
+
+                auto go = std::make_unique<GameObject>();
+                glm::vec2 pos = DiscWorldPos(dRow, dCol);
+                go->SetLocalPosition(pos.x, pos.y);
+                go->AddComponent<SpritesheetComponent>("Disk Spritesheet.png", DISC_SRC_W, DISC_SRC_H);
+
+                auto* disc = go->AddComponent<DiscComponent>(
+                    dRow, dCol, colorGroup,
+                    m_gameConfig.discFlightDuration,
+                    m_gameConfig.pointsCoilyDisc,
+                    m_gameConfig.freezeDuration);
+                disc->SetScene(m_scene);
+
+                // Register the disc with all players so they can check it on hop
+                for (auto* player : m_players)
+                    if (player) player->RegisterDisc(disc);
+
+                m_scene->Add(std::move(go));
+                ++placed;
+            }
         }
 
         void TickCoily(float deltaTime)
@@ -122,17 +192,14 @@ namespace dae
             m_coilyTimer = 0.f;
 
             float hopInterval = HopInterval(m_levelData.coily.hopIntervals);
-            int spawnRow = m_levelData.coily.spawnRow;
-            // Random spawn column: either the json spawnCol or spawnCol+1
-            int spawnCol = m_levelData.coily.spawnCol + (rand() % 2);
+            auto [spawnRow, spawnCol] = RandomSpawnLocation(m_levelData.coily);
 
             auto go = std::make_unique<GameObject>();
-            // Position is set by the component on first Update (intro fall from above)
             go->AddComponent<SpritesheetComponent>("Coily Spritesheet.png", COILY_SRC_W_SPAWN, COILY_SRC_H_SPAWN);
             auto* coily = go->AddComponent<CoilyComponent>(hopInterval, spawnRow, spawnCol);
             coily->SetQbert(GetFirstPlayer());
             coily->SetScene(m_scene);
-            coily->SetFreezeDuration(m_levelData.freezeDuration);
+            coily->SetFreezeDuration(m_gameConfig.freezeDuration);
 
             GameObject* coilyGo = go.get();
 
@@ -152,12 +219,13 @@ namespace dae
                         m_levelData.coily.spawnIntervalMin,
                         m_levelData.coily.spawnIntervalMax);
                 };
+            entry.freezeDuration = m_gameConfig.freezeDuration;
 
             GameStateManager::GetInstance().RegisterEnemy(std::move(entry));
             m_scene->Add(std::move(go));
         }
 
-        void TickUggWrongway(float deltaTime)
+        void TickUgg(float deltaTime)
         {
             if (m_uggTimer < 0.f) return;
 
@@ -165,16 +233,30 @@ namespace dae
             if (m_uggTimer > 0.f) return;
 
             m_uggTimer = RandomInterval(
-                m_levelData.uggWrongway.spawnIntervalMin,
-                m_levelData.uggWrongway.spawnIntervalMax);
+                m_levelData.ugg.spawnIntervalMin,
+                m_levelData.ugg.spawnIntervalMax);
 
-            float hopInterval = HopInterval(m_levelData.uggWrongway.hopIntervals);
-            int spawnRow = m_levelData.uggWrongway.spawnRow;
+            float hopInterval = HopInterval(m_levelData.ugg.hopIntervals);
+            auto [spawnRow, spawnCol] = RandomSpawnLocation(m_levelData.ugg);
+            // Ugg is always the right-side creature (isLeftSide = false)
+            SpawnUggWrongway(false, spawnRow, spawnCol, hopInterval);
+        }
 
-            // Randomly spawn either Wrongway (left) or Ugg (right)
-            bool spawnLeft = (rand() % 2) == 0;
-            int spawnCol = spawnLeft ? 0 : PYRAMID_ROWS - 1;
-            SpawnUggWrongway(spawnLeft, spawnRow, spawnCol, hopInterval);
+        void TickWrongway(float deltaTime)
+        {
+            if (m_wrongwayTimer < 0.f) return;
+
+            m_wrongwayTimer -= deltaTime;
+            if (m_wrongwayTimer > 0.f) return;
+
+            m_wrongwayTimer = RandomInterval(
+                m_levelData.wrongway.spawnIntervalMin,
+                m_levelData.wrongway.spawnIntervalMax);
+
+            float hopInterval = HopInterval(m_levelData.wrongway.hopIntervals);
+            auto [spawnRow, spawnCol] = RandomSpawnLocation(m_levelData.wrongway);
+            // Wrongway is always the left-side creature (isLeftSide = true)
+            SpawnUggWrongway(true, spawnRow, spawnCol, hopInterval);
         }
 
         void SpawnUggWrongway(bool isLeft, int row, int col, float hopInterval)
@@ -182,13 +264,12 @@ namespace dae
             auto go = std::make_unique<GameObject>();
             auto* ugg = go->AddComponent<UggWrongwayComponent>(isLeft, hopInterval, row, col);
             go->AddComponent<SpritesheetComponent>("Ugg Wrongway Spritesheet.png", UGG_SRC_W_SPAWN, UGG_SRC_H_SPAWN);
-            // Position is set by the component on first Update (intro fall from off-screen)
             ugg->SetQbert(GetFirstPlayer());
             ugg->SetScene(m_scene);
-            ugg->SetFreezeDuration(m_levelData.freezeDuration);
+            ugg->SetFreezeDuration(m_gameConfig.freezeDuration);
 
             EnemyEntry entry;
-            entry.type = EnemyEntry::Type::UggWrongway;
+            entry.type = isLeft ? EnemyEntry::Type::Wrongway : EnemyEntry::Type::Ugg;
             entry.component = ugg;
             entry.collisionDRow = ugg->GetCollisionDRow();
             entry.collisionDCol = ugg->GetCollisionDCol();
@@ -197,6 +278,8 @@ namespace dae
             entry.isHopping = [ugg]() { return ugg->IsHopping(); };
             GameObject* uggGo = go.get();
             entry.markForRemoval = [uggGo]() { uggGo->MarkForRemoval(); };
+            entry.triggerFall = [ugg]() { ugg->TriggerFall(); };
+            entry.freezeDuration = m_gameConfig.freezeDuration;
 
             GameStateManager::GetInstance().RegisterEnemy(std::move(entry));
             m_scene->Add(std::move(go));
@@ -214,25 +297,21 @@ namespace dae
                 m_levelData.slickSam.spawnIntervalMax);
 
             float hopInterval = HopInterval(m_levelData.slickSam.hopIntervals);
-            int spawnRow = m_levelData.slickSam.spawnRow;
-
-            // Randomly spawn either Slick (left, col 0) or Sam (right, col 1)
-            bool spawnLeft = (rand() % 2) == 0;
-            bool isSlick = spawnLeft;
-            int spawnCol = spawnLeft ? 0 : 1;
-            SpawnSlickSam(isSlick, spawnLeft, spawnRow, spawnCol, hopInterval);
+            auto [spawnRow, spawnCol] = RandomSpawnLocation(m_levelData.slickSam);
+            // Sprite randomized independently of spawn position
+            bool isSlick = (rand() % 2) == 0;
+            SpawnSlickSam(isSlick, spawnRow, spawnCol, hopInterval);
         }
 
-        void SpawnSlickSam(bool isSlick, bool isLeft, int row, int col, float hopInterval)
+        void SpawnSlickSam(bool isSlick, int row, int col, float hopInterval)
         {
             auto go = std::make_unique<GameObject>();
             go->AddComponent<SpritesheetComponent>("Slick Sam Spritesheet.png", SS_SRC_W_SPAWN, SS_SRC_H_SPAWN);
-            auto* ss = go->AddComponent<SlickSamComponent>(isSlick, isLeft, hopInterval, row, col);
+            auto* ss = go->AddComponent<SlickSamComponent>(isSlick, hopInterval, row, col);
             ss->SetPyramidGrid(m_grid);
             ss->SetQbert(GetFirstPlayer());
             ss->SetScene(m_scene);
-            ss->SetFreezeDuration(m_levelData.freezeDuration);
-            // Position is set by the component on first Update (intro fall from above)
+            ss->SetFreezeDuration(m_gameConfig.freezeDuration);
 
             EnemyEntry entry;
             entry.type = EnemyEntry::Type::SlickSam;
@@ -244,12 +323,15 @@ namespace dae
             entry.isHopping = [ss]() { return ss->IsHopping(); };
             GameObject* ssGo = go.get();
             entry.markForRemoval = [ssGo]() { ssGo->MarkForRemoval(); };
+            entry.triggerFall = [ss]() { ss->TriggerFall(); };
+            entry.freezeDuration = m_gameConfig.freezeDuration;
 
             GameStateManager::GetInstance().RegisterEnemy(std::move(entry));
             m_scene->Add(std::move(go));
         }
 
         LevelData m_levelData;
+        GameConfig m_gameConfig;
         PyramidGrid* m_grid;
         Scene* m_scene;
         std::vector<QbertPlayerComponent*> m_players;
@@ -258,6 +340,7 @@ namespace dae
         float m_coilyTimer{ 0.f };
         bool m_coilyAlive{ false };
         float m_uggTimer{ 0.f };
+        float m_wrongwayTimer{ 0.f };
         float m_ssTimer{ 0.f };
     };
 }
