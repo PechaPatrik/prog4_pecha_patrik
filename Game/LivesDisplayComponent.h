@@ -11,9 +11,8 @@ namespace dae
     class LivesDisplayComponent final : public Component, public IObserver
     {
     public:
-        LivesDisplayComponent(GameObject* pOwner, int playerIndex, int startingLives = MAX_LIVES)
+        LivesDisplayComponent(GameObject* pOwner, int startingLives = MAX_LIVES)
             : Component(pOwner)
-            , m_playerIndex(playerIndex)
             , m_lives(startingLives)
         {
         }
@@ -43,7 +42,6 @@ namespace dae
         }
 
     private:
-        int m_playerIndex;
         int m_lives;
         bool m_dirty{ false };
         std::array<ImageComponent*, MAX_LIVES> m_hearts{ nullptr, nullptr, nullptr };

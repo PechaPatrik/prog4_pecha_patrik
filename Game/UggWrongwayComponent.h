@@ -29,9 +29,9 @@ namespace dae
             , m_spriteRow(isLeftSide ? 1 : 0)
             , m_hopInterval(hopInterval)
             , m_gridRow(startRow)
+            , m_spriteCol(isLeftSide ? 0 : 2)
             // startCol -1 means use default per side
             , m_gridCol(startCol < 0 ? (isLeftSide ? 0 : (PYRAMID_ROWS - 1)) : startCol)
-            , m_spriteCol(isLeftSide ? 0 : 2)
         {
         }
 

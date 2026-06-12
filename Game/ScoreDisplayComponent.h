@@ -9,9 +9,8 @@ namespace dae
     class ScoreDisplayComponent final : public Component, public IObserver
     {
     public:
-        ScoreDisplayComponent(GameObject* pOwner, int playerIndex = 0)
+        ScoreDisplayComponent(GameObject* pOwner)
             : Component(pOwner)
-            , m_playerIndex(playerIndex)
             , m_score(0)
         {
         }
@@ -34,7 +33,6 @@ namespace dae
         }
 
     private:
-        int m_playerIndex;
         int m_score;
         bool m_dirty{ false };
     };

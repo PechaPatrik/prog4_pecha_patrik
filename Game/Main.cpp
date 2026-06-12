@@ -160,7 +160,7 @@ static void LoadLevel(int levelIndex, int round)
     float heartStartY = changeY + 48.f;
 
     auto livesGo = std::make_unique<dae::GameObject>();
-    auto* livesDisplay = livesGo->AddComponent<dae::LivesDisplayComponent>(0, 3);
+    auto* livesDisplay = livesGo->AddComponent<dae::LivesDisplayComponent>();
     scene.Add(std::move(livesGo));
 
     for (int i = 0; i < dae::MAX_LIVES; ++i)
