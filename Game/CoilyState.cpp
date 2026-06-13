@@ -1,47 +1,50 @@
 #include "CoilyState.h"
 #include "CoilyComponent.h"
 #include <cstdlib>
-#include <cmath>
 #include <climits>
 
 namespace dae
 {
-    // Pyramid bounds check: row in [0,6], col in [0, row]
-    static bool InBounds(int row, int col)
-    {
-        return row >= 0 && row <= 6 && col >= 0 && col <= row;
-    }
-
-    // 0=up-right(row-1,col), 1=up-left(row-1,col-1), 2=down-right(row+1,col+1), 3=down-left(row+1,col)
     static const int dRow[4] = { -1, -1, 1, 1 };
     static const int dCol[4] = { 0, -1, 1, 0 };
 
     std::unique_ptr<CoilyBaseState> CoilyEggState::Update(float deltaTime, CoilyComponent& coily)
     {
+        const PyramidGrid* grid = coily.GetGrid();
+
+        if (coily.IsAtBottomRow())
+        {
+            if (m_waitAtBottom > 0.f)
+            {
+                m_waitingAtBottom = true;
+                m_bottomWaitTimer += deltaTime;
+                if (m_bottomWaitTimer < m_waitAtBottom)
+                    return nullptr;
+            }
+            return std::make_unique<CoilySnakeState>(m_hopInterval);
+        }
+
         m_groundTimer += deltaTime;
         if (m_groundTimer < m_hopInterval) return nullptr;
         m_groundTimer = 0.f;
 
-        if (coily.GetGridRow() == 6)
-            return std::make_unique<CoilySnakeState>(m_hopInterval);
-
         int row = coily.GetGridRow();
         int col = coily.GetGridCol();
 
-        // Egg only moves down: direction 2 (down-right) or 3 (down-left)
         int dir = (rand() % 2) + 2;
         int newRow = row + dRow[dir];
         int newCol = col + dCol[dir];
 
-        if (!InBounds(newRow, newCol))
+        bool valid = grid ? grid->IsValid(newRow, newCol) : false;
+        if (!valid)
         {
-            // Try the other down direction
             dir = (dir == 2) ? 3 : 2;
             newRow = row + dRow[dir];
             newCol = col + dCol[dir];
+            valid = grid ? grid->IsValid(newRow, newCol) : false;
         }
 
-        if (InBounds(newRow, newCol))
+        if (valid)
             coily.BeginHop(newRow, newCol, m_hopInterval);
 
         return nullptr;
@@ -64,6 +67,7 @@ namespace dae
         if (m_groundTimer < m_hopInterval) return nullptr;
         m_groundTimer = 0.f;
 
+        const PyramidGrid* grid = coily.GetGrid();
         int row = coily.GetGridRow();
         int col = coily.GetGridCol();
         int targetRow = coily.GetTargetRow();
@@ -75,7 +79,7 @@ namespace dae
         {
             int nr = row + dRow[dir];
             int nc = col + dCol[dir];
-            if (!InBounds(nr, nc)) continue;
+            if (grid && !grid->IsValid(nr, nc)) continue;
             int dist = abs(nr - targetRow) + abs(nc - targetCol);
             if (dist < bestDist)
             {

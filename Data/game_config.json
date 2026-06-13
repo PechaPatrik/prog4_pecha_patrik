@@ -1,8 +1,17 @@
 {
+  "pixelScale": 3.0,
   "freezeDuration": 1.5,
   "discFlightDuration": 2.0,
+  "discDropDuration": 0.25,
+  "discFrameDuration": 0.12,
+  "arcHeight": 12.0,
+  "enemyFallGravity": 800.0,
+  "hopDurationQbert": 0.3,
   "pointsPerCubeChange": 25,
   "pointsCoilyDisc": 500,
   "pointsDiscRemaining": 50,
-  "pointsSlickSam": 300
+  "pointsSlickSam": 300,
+  "maxLives": 3,
+  "curseOffsetX": 12.0,
+  "curseOffsetY": 24.0
 }

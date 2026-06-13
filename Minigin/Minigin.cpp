@@ -4,12 +4,11 @@
 #include <thread>
 
 #if WIN32
-#define WIN32_LEAN_AND_MEAN 
+#define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #endif
 
 #include <SDL3/SDL.h>
-//#include <SDL3_image/SDL_image.h>
 #include <SDL3_ttf/SDL_ttf.h>
 #include <SDL3_mixer/SDL_mixer.h>
 #include "Minigin.h"
@@ -52,10 +51,7 @@ void PrintSDLVersion()
 	LogSDLVersion("Compiled with SDL", SDL_MAJOR_VERSION, SDL_MINOR_VERSION, SDL_MICRO_VERSION);
 	int version = SDL_GetVersion();
 	LogSDLVersion("Linked with SDL ", SDL_VERSIONNUM_MAJOR(version), SDL_VERSIONNUM_MINOR(version), SDL_VERSIONNUM_MICRO(version));
-	// LogSDLVersion("Compiled with SDL_image ",SDL_IMAGE_MAJOR_VERSION, SDL_IMAGE_MINOR_VERSION, SDL_IMAGE_MICRO_VERSION);
-	// version = IMG_Version();
-	// LogSDLVersion("Linked with SDL_image ", SDL_VERSIONNUM_MAJOR(version), SDL_VERSIONNUM_MINOR(version), SDL_VERSIONNUM_MICRO(version));
-	LogSDLVersion("Compiled with SDL_ttf ",	SDL_TTF_MAJOR_VERSION, SDL_TTF_MINOR_VERSION,SDL_TTF_MICRO_VERSION);
+	LogSDLVersion("Compiled with SDL_ttf ", SDL_TTF_MAJOR_VERSION, SDL_TTF_MINOR_VERSION, SDL_TTF_MICRO_VERSION);
 	version = TTF_Version();
 	LogSDLVersion("Linked with SDL_ttf ", SDL_VERSIONNUM_MAJOR(version), SDL_VERSIONNUM_MINOR(version), SDL_VERSIONNUM_MICRO(version));
 	version = MIX_Version();
@@ -63,7 +59,7 @@ void PrintSDLVersion()
 }
 
 namespace dae {
-	Minigin::Minigin(const std::filesystem::path& dataPath)
+	Minigin::Minigin(const std::filesystem::path& dataPath, int windowW, int windowH)
 	{
 		PrintSDLVersion();
 
@@ -80,16 +76,9 @@ namespace dae {
 			throw std::runtime_error(std::string("SDL_Init Audio Error: ") + SDL_GetError());
 		}
 
-		g_window = SDL_CreateWindow(
-			"Q*bert",
-			768,
-			720,
-			SDL_WINDOW_OPENGL
-		);
+		g_window = SDL_CreateWindow("Q*bert", windowW, windowH, SDL_WINDOW_OPENGL);
 		if (g_window == nullptr)
-		{
 			throw std::runtime_error(std::string("SDL_CreateWindow Error: ") + SDL_GetError());
-		}
 
 		Renderer::GetInstance().Init(g_window);
 		ResourceManager::GetInstance().Init(dataPath);

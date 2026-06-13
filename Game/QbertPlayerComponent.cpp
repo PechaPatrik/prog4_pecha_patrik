@@ -40,7 +40,7 @@ namespace dae
                     }
                 }
                 float t3 = (m_discRideTimer - m_discPhase1Duration - m_discPhase2Duration)
-                    / DISC_DROP_DURATION;
+                    / m_discDropDuration;
                 if (t3 > 1.f) t3 = 1.f;
                 float x = m_discHoverPos.x + (m_discDropPos.x - m_discHoverPos.x) * t3;
                 float y = m_discHoverPos.y + (m_discDropPos.y - m_discHoverPos.y) * t3;
@@ -100,7 +100,7 @@ namespace dae
         m_lastDir = dir;
         UpdateSprite(dir);
 
-        bool outOfBounds = (newRow < 0 || newRow >= PYRAMID_ROWS || newCol < 0 || newCol > newRow);
+        bool outOfBounds = m_grid ? !m_grid->IsValid(newRow, newCol) : true;
         if (outOfBounds)
         {
             BeginHopOffEdge(newRow, newCol, dir);

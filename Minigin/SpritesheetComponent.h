@@ -13,11 +13,11 @@ namespace dae
     class SpritesheetComponent final : public Component
     {
     public:
-        SpritesheetComponent(GameObject* pOwner, const std::string& filename, int frameWidth, int frameHeight, float scale = PIXEL_SCALE)
+        SpritesheetComponent(GameObject* pOwner, const std::string& filename, int frameWidth, int frameHeight, float scale = 0.f)
             : Component(pOwner)
             , m_frameWidth(frameWidth)
             , m_frameHeight(frameHeight)
-            , m_scale(scale)
+            , m_scale(scale == 0.f ? PIXEL_SCALE : scale)
         {
             m_texture = ResourceManager::GetInstance().LoadTexture(filename);
         }

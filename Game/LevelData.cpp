@@ -14,7 +14,13 @@ namespace dae
         else if (j.value("enabled", false))
             cfg.enabledPerRound.assign(roundCount, true);
 
-        cfg.firstSpawnDelay = j.value("firstSpawnDelay", 5.f);
+        if (j.contains("firstSpawnDelayPerRound"))
+            cfg.firstSpawnDelayPerRound = j["firstSpawnDelayPerRound"].get<std::vector<float>>();
+        else
+        {
+            float singleDelay = j.value("firstSpawnDelay", 5.f);
+            cfg.firstSpawnDelayPerRound.assign(roundCount, singleDelay);
+        }
 
         if (j.contains("spawnLocations"))
         {
@@ -36,6 +42,14 @@ namespace dae
             cfg.hopIntervals = j["hopIntervals"].get<std::vector<float>>();
         else
             cfg.hopIntervals.assign(roundCount, 1.f);
+
+        if (j.contains("waitAtBottomPerRound"))
+            cfg.waitAtBottomPerRound = j["waitAtBottomPerRound"].get<std::vector<float>>();
+        else
+        {
+            float single = j.value("waitAtBottom", 0.f);
+            cfg.waitAtBottomPerRound.assign(roundCount, single);
+        }
 
         return cfg;
     }
@@ -63,6 +77,20 @@ namespace dae
         else
             data.rule = LevelRule::SingleStep;
 
+        if (j.contains("rowWidths"))
+            data.rowWidths = j["rowWidths"].get<std::vector<int>>();
+        else
+            data.rowWidths = { 1, 2, 3, 4, 5, 6, 7 };
+
+        if (j.contains("rowOffsets"))
+            data.rowOffsets = j["rowOffsets"].get<std::vector<int>>();
+        else
+            data.rowOffsets.assign(data.rowWidths.size(), 0);
+
+        // Ensure offsets vector matches rowWidths length
+        if (data.rowOffsets.size() < data.rowWidths.size())
+            data.rowOffsets.resize(data.rowWidths.size(), 0);
+
         if (j.contains("coily"))
             data.coily = ParseEnemyConfig(j["coily"], roundCount);
 
@@ -80,6 +108,8 @@ namespace dae
         else
             data.discCountsPerRound.assign(roundCount, 2);
 
+        data.enemyIntroSpeed = j.value("enemyIntroSpeed", 400.f);
+
         return data;
     }
 
@@ -93,12 +123,21 @@ namespace dae
         file >> j;
 
         GameConfig cfg;
+        cfg.pixelScale = j.value("pixelScale", 3.f);
         cfg.freezeDuration = j.value("freezeDuration", 1.5f);
         cfg.discFlightDuration = j.value("discFlightDuration", 2.0f);
+        cfg.discDropDuration = j.value("discDropDuration", 0.25f);
+        cfg.discFrameDuration = j.value("discFrameDuration", 0.12f);
+        cfg.arcHeight = j.value("arcHeight", 12.f);
+        cfg.enemyFallGravity = j.value("enemyFallGravity", 800.f);
+        cfg.hopDurationQbert = j.value("hopDurationQbert", 0.3f);
         cfg.pointsPerCubeChange = j.value("pointsPerCubeChange", 25);
         cfg.pointsCoilyDisc = j.value("pointsCoilyDisc", 500);
         cfg.pointsDiscRemaining = j.value("pointsDiscRemaining", 50);
         cfg.pointsSlickSam = j.value("pointsSlickSam", 300);
+        cfg.maxLives = j.value("maxLives", 3);
+        cfg.curseOffsetX = j.value("curseOffsetX", 12.f);
+        cfg.curseOffsetY = j.value("curseOffsetY", 24.f);
         return cfg;
     }
 }

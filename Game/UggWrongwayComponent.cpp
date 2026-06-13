@@ -2,6 +2,7 @@
 #include "GameStateManager.h"
 #include "Scene.h"
 #include <cmath>
+#include <algorithm>
 
 namespace dae
 {
@@ -12,6 +13,8 @@ namespace dae
         if (!m_initialized)
         {
             m_initialized = true;
+
+            ResolveStartPosition();
             UpdateSprite();
 
             auto* sheet = GetOwner()->GetComponent<SpritesheetComponent>();
@@ -20,20 +23,21 @@ namespace dae
 
             m_introTo = GetSidePos(m_gridRow, m_gridCol, srcW, srcH);
 
-            // 120 degrees CW from screen-up for right side, 120 degrees CCW for left side
             static constexpr float SIN120 = 0.8660254f;
             static constexpr float COS120 = 0.5f;
             float dirX = m_isLeftSide ? SIN120 : -SIN120;
             float dirY = -COS120;
 
-            // Place start far enough off-screen along that direction
-            static constexpr float INTRO_OFFSCREEN_DIST = 400.f;
-            m_introFrom.x = m_introTo.x - dirX * INTRO_OFFSCREEN_DIST;
-            m_introFrom.y = m_introTo.y - dirY * INTRO_OFFSCREEN_DIST;
+            // Walk backward along the approach direction until the start point is off-screen
+            float margin = static_cast<float>(std::max(srcW, srcH)) * PIXEL_SCALE * 2.f;
+            float maxDist = static_cast<float>(std::max(GameWindowW(), GameWindowH())) + margin;
+            m_introFrom.x = m_introTo.x - dirX * maxDist;
+            m_introFrom.y = m_introTo.y - dirY * maxDist;
 
             float dx = m_introTo.x - m_introFrom.x;
             float dy = m_introTo.y - m_introFrom.y;
             m_introLength = std::sqrt(dx * dx + dy * dy);
+            if (m_introLength <= 0.f) m_introLength = 0.001f;
             m_introProgress = 0.f;
 
             GetOwner()->SetLocalPosition(m_introFrom.x, m_introFrom.y);
@@ -41,7 +45,7 @@ namespace dae
 
         if (m_introFalling)
         {
-            m_introProgress += UGG_INTRO_SPEED * deltaTime;
+            m_introProgress += m_introSpeed * deltaTime;
             if (m_introProgress >= m_introLength)
             {
                 m_introFalling = false;
@@ -77,13 +81,19 @@ namespace dae
 
         if (m_falling)
         {
-            m_fallSpeed += UGG_GRAVITY * deltaTime;
+            auto* sheet = GetOwner()->GetComponent<SpritesheetComponent>();
+            int srcW = sheet ? sheet->GetFrameWidth() : UGG_SRC_W;
+            int srcH = sheet ? sheet->GetFrameHeight() : UGG_SRC_H;
+            float margin = static_cast<float>(std::max(srcW, srcH)) * PIXEL_SCALE * 2.f;
+
+            m_fallSpeed += m_fallGravity * deltaTime;
             m_fallPos += m_fallDir * m_fallSpeed * deltaTime;
             GetOwner()->SetLocalPosition(m_fallPos.x, m_fallPos.y);
-            if (m_fallPos.x < -UGG_SRC_W * PIXEL_SCALE * 2.f ||
-                m_fallPos.x > WINDOW_W + UGG_SRC_W * PIXEL_SCALE * 2.f ||
-                m_fallPos.y > WINDOW_H + UGG_SRC_H * PIXEL_SCALE * 2.f ||
-                m_fallPos.y < -UGG_SRC_H * PIXEL_SCALE * 2.f)
+
+            float ww = static_cast<float>(GameWindowW());
+            float wh = static_cast<float>(GameWindowH());
+            if (m_fallPos.x < -margin || m_fallPos.x > ww + margin ||
+                m_fallPos.y > wh + margin || m_fallPos.y < -margin)
                 GetOwner()->MarkForRemoval();
             return;
         }

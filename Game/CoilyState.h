@@ -18,8 +18,10 @@ namespace dae
     class CoilyEggState final : public CoilyBaseState
     {
     public:
-        explicit CoilyEggState(float hopInterval = 0.5f)
-            : m_hopInterval(hopInterval) {
+        explicit CoilyEggState(float hopInterval = 0.5f, float waitAtBottom = 0.f)
+            : m_hopInterval(hopInterval)
+            , m_waitAtBottom(waitAtBottom)
+        {
         }
         std::unique_ptr<CoilyBaseState> Update(float deltaTime, CoilyComponent& coily) override;
         std::unique_ptr<CoilyBaseState> OnLanded(CoilyComponent& coily) override;
@@ -30,6 +32,9 @@ namespace dae
     private:
         float m_groundTimer{ 0.f };
         float m_hopInterval;
+        float m_waitAtBottom;
+        float m_bottomWaitTimer{ 0.f };
+        bool m_waitingAtBottom{ false };
     };
 
     class CoilySnakeState final : public CoilyBaseState

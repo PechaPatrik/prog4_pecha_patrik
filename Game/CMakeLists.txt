@@ -17,6 +17,7 @@ add_executable(${TARGET_NAME} ${TARGET_PARAM}
   CoilyComponent.cpp
   UggWrongwayComponent.cpp
   SlickSamComponent.cpp
+  GameScale.cpp
 )
 
 target_compile_features(${TARGET_NAME} PUBLIC cxx_std_20)

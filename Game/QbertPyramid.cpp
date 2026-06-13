@@ -11,25 +11,30 @@ namespace dae
         int colorColumn = levelData.roundColorColumns[round % static_cast<int>(levelData.roundColorColumns.size())];
 
         PyramidGrid grid;
-        grid.cubes.resize(PYRAMID_ROWS);
+        grid.rowWidths = levelData.rowWidths;
+        grid.rowOffsets = levelData.rowOffsets;
 
-        for (int row = 0; row < PYRAMID_ROWS; ++row)
+        int numRows = grid.NumRows();
+        grid.cubes.resize(numRows);
+
+        for (int row = 0; row < numRows; ++row)
         {
-            int cols = row + 1;
+            int cols = grid.rowWidths[row];
+            int offset = grid.rowOffsets[row];
             grid.cubes[row].resize(cols, nullptr);
 
-            for (int col = 0; col < cols; ++col)
+            for (int i = 0; i < cols; ++i)
             {
+                int logicalCol = offset + i;
                 auto go = std::make_unique<GameObject>();
-                glm::vec2 pos = GridToScreen(row, col);
+                glm::vec2 pos = GridToScreen(row, logicalCol);
                 go->SetLocalPosition(pos.x, pos.y);
 
                 go->AddComponent<SpritesheetComponent>("Qbert Cubes.png", CUBE_SRC_W, CUBE_SRC_H);
-                auto* cube = go->AddComponent<CubeComponent>(levelData.rule, colorColumn);
+                go->AddComponent<CubeComponent>(levelData.rule, colorColumn);
                 go->GetComponent<SpritesheetComponent>()->SetFrame(colorColumn);
-                (void)cube;
 
-                grid.cubes[row][col] = go.get();
+                grid.cubes[row][i] = go.get();
                 scene.Add(std::move(go));
             }
         }

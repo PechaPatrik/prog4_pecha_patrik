@@ -74,27 +74,36 @@ namespace dae
 
         void ResetTimers()
         {
+            int r = RoundIndex();
+
             if (IsEnabledForRound(m_levelData.coily))
-                m_coilyTimer = m_levelData.coily.firstSpawnDelay;
+                m_coilyTimer = FirstDelay(m_levelData.coily, r);
             else
                 m_coilyTimer = -1.f;
 
             m_coilyAlive = false;
 
             if (IsEnabledForRound(m_levelData.ugg))
-                m_uggTimer = m_levelData.ugg.firstSpawnDelay;
+                m_uggTimer = FirstDelay(m_levelData.ugg, r);
             else
                 m_uggTimer = -1.f;
 
             if (IsEnabledForRound(m_levelData.wrongway))
-                m_wrongwayTimer = m_levelData.wrongway.firstSpawnDelay;
+                m_wrongwayTimer = FirstDelay(m_levelData.wrongway, r);
             else
                 m_wrongwayTimer = -1.f;
 
             if (IsEnabledForRound(m_levelData.slickSam))
-                m_ssTimer = m_levelData.slickSam.firstSpawnDelay;
+                m_ssTimer = FirstDelay(m_levelData.slickSam, r);
             else
                 m_ssTimer = -1.f;
+        }
+
+        float FirstDelay(const EnemySpawnConfig& cfg, int r) const
+        {
+            if (r < static_cast<int>(cfg.firstSpawnDelayPerRound.size()))
+                return cfg.firstSpawnDelayPerRound[r];
+            return 5.f;
         }
 
         int RoundIndex() const
@@ -119,9 +128,21 @@ namespace dae
             return (r < static_cast<int>(hops.size())) ? hops[r] : 1.f;
         }
 
+        float WaitAtBottom(const EnemySpawnConfig& cfg) const
+        {
+            int r = RoundIndex();
+            if (r < static_cast<int>(cfg.waitAtBottomPerRound.size()))
+                return cfg.waitAtBottomPerRound[r];
+            return 0.f;
+        }
+
         std::pair<int, int> RandomSpawnLocation(const EnemySpawnConfig& cfg) const
         {
-            if (cfg.spawnLocations.empty()) return { 0, 0 };
+            if (cfg.spawnLocations.empty())
+            {
+                int lastRow = m_grid ? m_grid->NumRows() - 1 : 6;
+                return { lastRow, 0 };
+            }
             int idx = rand() % static_cast<int>(cfg.spawnLocations.size());
             return cfg.spawnLocations[idx];
         }
@@ -129,6 +150,30 @@ namespace dae
         QbertPlayerComponent* GetFirstPlayer() const
         {
             return m_players.empty() ? nullptr : m_players[0];
+        }
+
+        void ApplyCommonEnemyConfig(CoilyComponent* c) const
+        {
+            c->SetArcHeight(m_gameConfig.arcHeight);
+            c->SetFallGravity(m_gameConfig.enemyFallGravity);
+            c->SetIntroSpeed(m_levelData.enemyIntroSpeed);
+            c->SetPyramidGrid(m_grid);
+        }
+
+        void ApplyCommonEnemyConfig(UggWrongwayComponent* u) const
+        {
+            u->SetArcHeight(m_gameConfig.arcHeight);
+            u->SetFallGravity(m_gameConfig.enemyFallGravity);
+            u->SetIntroSpeed(m_levelData.enemyIntroSpeed);
+            u->SetPyramidGrid(m_grid);
+        }
+
+        void ApplyCommonEnemyConfig(SlickSamComponent* s) const
+        {
+            s->SetArcHeight(m_gameConfig.arcHeight);
+            s->SetFallGravity(m_gameConfig.enemyFallGravity);
+            s->SetIntroSpeed(m_levelData.enemyIntroSpeed);
+            s->SetPyramidGrid(m_grid);
         }
 
         void SpawnDiscs()
@@ -140,7 +185,6 @@ namespace dae
             int colorGroup = (r < static_cast<int>(m_levelData.roundColorColumns.size()))
                 ? m_levelData.roundColorColumns[r] : 0;
 
-            // Build all possible disc positions: rows -1 through 5, left col=-1 or right col=row+1
             std::vector<std::pair<int, int>> candidates;
             for (int row = -1; row <= 5; ++row)
             {
@@ -148,7 +192,6 @@ namespace dae
                 candidates.emplace_back(row, row + 1);
             }
 
-            // Shuffle and pick discCount unique positions
             for (int i = static_cast<int>(candidates.size()) - 1; i > 0; --i)
             {
                 int j = rand() % (i + 1);
@@ -161,7 +204,9 @@ namespace dae
                 if (placed >= discCount) break;
 
                 auto go = std::make_unique<GameObject>();
-                glm::vec2 pos = DiscWorldPos(dRow, dCol);
+                glm::vec2 pos = m_grid
+                    ? DiscWorldPos(dRow, dCol)
+                    : glm::vec2{ 0.f, 0.f };
                 go->SetLocalPosition(pos.x, pos.y);
                 go->AddComponent<SpritesheetComponent>("Disk Spritesheet.png", DISC_SRC_W, DISC_SRC_H);
 
@@ -169,10 +214,12 @@ namespace dae
                     dRow, dCol, colorGroup,
                     m_gameConfig.discFlightDuration,
                     m_gameConfig.pointsCoilyDisc,
-                    m_gameConfig.freezeDuration);
+                    m_gameConfig.freezeDuration,
+                    m_gameConfig.discFrameDuration,
+                    m_gameConfig.discDropDuration);
                 disc->SetScene(m_scene);
+                disc->SetPyramidGrid(m_grid);
 
-                // Register the disc with all players so they can check it on hop
                 for (auto* player : m_players)
                     if (player) player->RegisterDisc(disc);
 
@@ -192,14 +239,16 @@ namespace dae
             m_coilyTimer = 0.f;
 
             float hopInterval = HopInterval(m_levelData.coily.hopIntervals);
+            float waitAtBottom = WaitAtBottom(m_levelData.coily);
             auto [spawnRow, spawnCol] = RandomSpawnLocation(m_levelData.coily);
 
             auto go = std::make_unique<GameObject>();
             go->AddComponent<SpritesheetComponent>("Coily Spritesheet.png", COILY_SRC_W_SPAWN, COILY_SRC_H_SPAWN);
-            auto* coily = go->AddComponent<CoilyComponent>(hopInterval, spawnRow, spawnCol);
+            auto* coily = go->AddComponent<CoilyComponent>(hopInterval, spawnRow, spawnCol, waitAtBottom);
             coily->SetQbert(GetFirstPlayer());
             coily->SetScene(m_scene);
             coily->SetFreezeDuration(m_gameConfig.freezeDuration);
+            ApplyCommonEnemyConfig(coily);
 
             GameObject* coilyGo = go.get();
 
@@ -238,7 +287,6 @@ namespace dae
 
             float hopInterval = HopInterval(m_levelData.ugg.hopIntervals);
             auto [spawnRow, spawnCol] = RandomSpawnLocation(m_levelData.ugg);
-            // Ugg is always the right-side creature (isLeftSide = false)
             SpawnUggWrongway(false, spawnRow, spawnCol, hopInterval);
         }
 
@@ -255,7 +303,6 @@ namespace dae
 
             float hopInterval = HopInterval(m_levelData.wrongway.hopIntervals);
             auto [spawnRow, spawnCol] = RandomSpawnLocation(m_levelData.wrongway);
-            // Wrongway is always the left-side creature (isLeftSide = true)
             SpawnUggWrongway(true, spawnRow, spawnCol, hopInterval);
         }
 
@@ -267,6 +314,7 @@ namespace dae
             ugg->SetQbert(GetFirstPlayer());
             ugg->SetScene(m_scene);
             ugg->SetFreezeDuration(m_gameConfig.freezeDuration);
+            ApplyCommonEnemyConfig(ugg);
 
             EnemyEntry entry;
             entry.type = isLeft ? EnemyEntry::Type::Wrongway : EnemyEntry::Type::Ugg;
@@ -298,7 +346,6 @@ namespace dae
 
             float hopInterval = HopInterval(m_levelData.slickSam.hopIntervals);
             auto [spawnRow, spawnCol] = RandomSpawnLocation(m_levelData.slickSam);
-            // Sprite randomized independently of spawn position
             bool isSlick = (rand() % 2) == 0;
             SpawnSlickSam(isSlick, spawnRow, spawnCol, hopInterval);
         }
@@ -312,6 +359,7 @@ namespace dae
             ss->SetQbert(GetFirstPlayer());
             ss->SetScene(m_scene);
             ss->SetFreezeDuration(m_gameConfig.freezeDuration);
+            ApplyCommonEnemyConfig(ss);
 
             EnemyEntry entry;
             entry.type = EnemyEntry::Type::SlickSam;

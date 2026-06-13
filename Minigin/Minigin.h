@@ -9,7 +9,7 @@ namespace dae
 	class Minigin final
 	{
 	public:
-		explicit Minigin(const std::filesystem::path& dataPath);
+		explicit Minigin(const std::filesystem::path& dataPath, int windowW, int windowH);
 		~Minigin();
 		void Run(const std::function<void()>& load);
 		void RunOneFrame();

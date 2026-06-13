@@ -14,10 +14,10 @@ namespace dae
     struct EnemyEntry
     {
         enum class Type { Coily, Ugg, Wrongway, SlickSam };
-        Type type;
-        void* component;
-        int collisionDRow;
-        int collisionDCol;
+        Type type{};
+        void* component{};
+        int collisionDRow{};
+        int collisionDCol{};
         std::function<int()> getRow;
         std::function<int()> getCol;
         std::function<bool()> isHopping;
@@ -45,19 +45,17 @@ namespace dae
         bool IsFrozen() const { return m_frozen; }
         bool IsDiscRiding() const { return m_discRiding; }
 
+        void SetCurseOffset(float x, float y) { m_curseOffsetX = x; m_curseOffsetY = y; }
+
         void TriggerPlayerDeath(QbertPlayerComponent* dyingPlayer, Scene* scene,
             float cursePosX, float cursePosY, float freezeDuration);
 
-        // Called when Q*bert steps on a disc.
-        // discRow/discCol is the disc's side position so Coily can evaluate pursuit.
-        // flightDuration is how long the full ride takes.
-        // onLanded is called when Q*bert lands on 0,0 (triggers full respawn).
         void TriggerDiscRide(QbertPlayerComponent* rider, Scene* scene,
             int discRow, int discCol, float flightDuration,
-            int pointsCoilyDisc, float freezeDuration);
+            int pointsCoilyDisc, float freezeDuration, float discDropDuration);
 
-        // Called by CoilyComponent when it lands off the pyramid during a disc ride
-        void OnCoilyFellDuringDisc(QbertPlayerComponent* nearestPlayer) const;
+        // Called by CoilyComponent immediately when it begins the disc-chase fall hop
+        void OnCoilyFellDuringDisc(int coilyRow, int coilyCol) const;
 
         void Update(float deltaTime, Scene* scene);
 
@@ -81,6 +79,8 @@ namespace dae
         bool m_frozen{ false };
         float m_freezeTimer{ 0.f };
         float m_freezeDuration{ 1.5f };
+        float m_curseOffsetX{ 12.f };
+        float m_curseOffsetY{ 24.f };
         GameObject* m_curseGameObject{ nullptr };
         QbertPlayerComponent* m_dyingPlayer{ nullptr };
         std::vector<std::function<void()>> m_respawnCallbacks;
@@ -92,6 +92,7 @@ namespace dae
         QbertPlayerComponent* m_discRider{ nullptr };
         int m_pointsCoilyDisc{ 500 };
         float m_discFreezeDuration{ 1.5f };
+        float m_discDropDuration{ 0.25f };
         Scene* m_discScene{ nullptr };
     };
 }

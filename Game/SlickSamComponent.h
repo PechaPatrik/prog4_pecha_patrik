@@ -12,9 +12,6 @@ namespace dae
 {
     static constexpr int SLICK_SAM_SRC_W = 12;
     static constexpr int SLICK_SAM_SRC_H = 16;
-    static constexpr float SLICK_SAM_ARC_HEIGHT = 10.f * PIXEL_SCALE;
-    static constexpr float SLICK_SAM_FALL_SPEED_INIT = 200.f;
-    static constexpr float SLICK_SAM_GRAVITY = 800.f;
 
     static const int SS_dRow[4] = { -1, -1, 1, 1 };
     static const int SS_dCol[4] = { 0, -1, 1, 0 };
@@ -24,7 +21,6 @@ namespace dae
     class SlickSamComponent final : public Component
     {
     public:
-        // isSlick: true = Slick (spritesheet row 0), false = Sam (spritesheet row 1)
         SlickSamComponent(GameObject* pOwner, bool isSlick, float hopInterval = 0.5f,
             int spawnRow = 1, int spawnCol = 0)
             : Component(pOwner)
@@ -46,6 +42,9 @@ namespace dae
         void SetQbert(QbertPlayerComponent* qbert) { m_qbert = qbert; }
         void SetScene(Scene* scene) { m_scene = scene; }
         void SetFreezeDuration(float d) { m_freezeDuration = d; }
+        void SetArcHeight(float h) { m_arcHeight = h; }
+        void SetFallGravity(float g) { m_fallGravity = g; }
+        void SetIntroSpeed(float s) { m_introSpeed = s; }
 
         int GetGridRow() const { return m_gridRow; }
         int GetGridCol() const { return m_gridCol; }
@@ -60,11 +59,6 @@ namespace dae
                 return;
             }
             BeginFall();
-        }
-
-        glm::vec2 GetInitialPos(int charSrcW, int charSrcH) const
-        {
-            return GridToCharacterPos(m_gridRow, m_gridCol, charSrcW, charSrcH);
         }
 
         void Update(float deltaTime) override;
@@ -105,11 +99,16 @@ namespace dae
             int srcW = sheet ? sheet->GetFrameWidth() : SLICK_SAM_SRC_W;
             int srcH = sheet ? sheet->GetFrameHeight() : SLICK_SAM_SRC_H;
 
-            m_fromPos = GridToCharacterPos(m_gridRow, m_gridCol, srcW, srcH);
-            m_toPos = GridToCharacterPos(destRow, destCol, srcW, srcH);
+            m_fromPos = m_grid
+                ? GridToCharacterPos(m_gridRow, m_gridCol, srcW, srcH)
+                : glm::vec2{ 0.f, 0.f };
+            m_toPos = m_grid
+                ? GridToCharacterPos(destRow, destCol, srcW, srcH)
+                : glm::vec2{ 0.f, 0.f };
             m_destRow = destRow;
             m_destCol = destCol;
             m_hopDuration = m_hopInterval * 0.5f;
+            if (m_hopDuration <= 0.f) m_hopDuration = 0.001f;
             m_hopPhase = 0.f;
             m_hopping = true;
         }
@@ -119,14 +118,15 @@ namespace dae
             m_falling = true;
             glm::vec2 wp = GetOwner()->GetWorldPosition();
             m_fallPos = { wp.x, wp.y };
-            m_fallSpeed = SLICK_SAM_FALL_SPEED_INIT;
+            m_fallSpeed = 0.f;
         }
 
         void ApplyArcPosition(float t)
         {
+            float arcH = m_arcHeight * PIXEL_SCALE;
             float x = m_fromPos.x + (m_toPos.x - m_fromPos.x) * t;
             float y = m_fromPos.y + (m_toPos.y - m_fromPos.y) * t;
-            float arcY = -SLICK_SAM_ARC_HEIGHT * std::sin(t * 3.14159265f);
+            float arcY = -arcH * std::sin(t * 3.14159265f);
             GetOwner()->SetLocalPosition(x, y + arcY);
         }
 
@@ -137,15 +137,18 @@ namespace dae
                 sheet->SetFrame(m_spriteCol, m_spriteRow);
         }
 
-        static bool IsOnPyramid(int row, int col)
+        bool IsOnPyramid(int row, int col) const
         {
-            return row >= 0 && row < PYRAMID_ROWS && col >= 0 && col <= row;
+            return m_grid && m_grid->IsValid(row, col);
         }
 
         PyramidGrid* m_grid{ nullptr };
         QbertPlayerComponent* m_qbert{ nullptr };
         Scene* m_scene{ nullptr };
         float m_freezeDuration{ 1.f };
+        float m_arcHeight{ 12.f };
+        float m_fallGravity{ 800.f };
+        float m_introSpeed{ 400.f };
 
         int m_spriteRow;
         int m_spriteCol{ 0 };
@@ -165,16 +168,14 @@ namespace dae
 
         bool m_falling{ false };
         glm::vec2 m_fallPos{ 0.f, 0.f };
-        float m_fallSpeed{ SLICK_SAM_FALL_SPEED_INIT };
+        float m_fallSpeed{ 0.f };
 
         bool m_pendingFall{ false };
         bool m_initialized{ false };
 
-        // Intro fall from above to spawn tile
         bool m_introFalling{ true };
         glm::vec2 m_introFrom{ 0.f, 0.f };
         glm::vec2 m_introTo{ 0.f, 0.f };
-        float m_introSpeed{ 400.f };
         float m_introProgress{ 0.f };
         float m_introLength{ 1.f };
     };

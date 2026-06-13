@@ -10,16 +10,15 @@
 
 namespace dae
 {
-    static constexpr float COILY_ARC_HEIGHT = 12.f * PIXEL_SCALE;
-
     class Scene;
 
     class CoilyComponent final : public Component
     {
     public:
-        CoilyComponent(GameObject* pOwner, float hopInterval = 0.5f, int spawnRow = 0, int spawnCol = 0)
+        CoilyComponent(GameObject* pOwner, float hopInterval = 0.5f,
+            int spawnRow = 0, int spawnCol = 0, float waitAtBottom = 0.f)
             : Component(pOwner)
-            , m_state(std::make_unique<CoilyEggState>(hopInterval))
+            , m_state(std::make_unique<CoilyEggState>(hopInterval, waitAtBottom))
             , m_hopInterval(hopInterval)
             , m_gridRow(spawnRow)
             , m_gridCol(spawnCol)
@@ -36,6 +35,10 @@ namespace dae
         void SetQbert(QbertPlayerComponent* qbert) { m_qbert = qbert; }
         void SetScene(Scene* scene) { m_scene = scene; }
         void SetFreezeDuration(float d) { m_freezeDuration = d; }
+        void SetPyramidGrid(const PyramidGrid* grid) { m_grid = grid; }
+        void SetArcHeight(float h) { m_arcHeight = h; }
+        void SetFallGravity(float g) { m_fallGravity = g; }
+        void SetIntroSpeed(float s) { m_introSpeed = s; }
 
         void Update(float deltaTime) override;
 
@@ -44,11 +47,16 @@ namespace dae
             auto* sheet = GetOwner()->GetComponent<SpritesheetComponent>();
             int srcW = sheet ? sheet->GetFrameWidth() : 16;
             int srcH = sheet ? sheet->GetFrameHeight() : 32;
-            m_fromPos = GridToCharacterPos(m_gridRow, m_gridCol, srcW, srcH);
-            m_toPos = GridToCharacterPos(destRow, destCol, srcW, srcH);
+            m_fromPos = m_grid
+                ? GridToCharacterPos(m_gridRow, m_gridCol, srcW, srcH)
+                : glm::vec2{ 0.f, 0.f };
+            m_toPos = m_grid
+                ? GridToCharacterPos(destRow, destCol, srcW, srcH)
+                : glm::vec2{ 0.f, 0.f };
             m_destRow = destRow;
             m_destCol = destCol;
             m_hopDuration = hopInterval * 0.5f;
+            if (m_hopDuration <= 0.f) m_hopDuration = 0.001f;
             m_hopPhase = 0.f;
             m_hopping = true;
         }
@@ -58,6 +66,12 @@ namespace dae
         int GetGridCol() const { return m_gridCol; }
         bool IsEgg() const { return m_state->IsEgg(); }
         float GetHopInterval() const { return m_hopInterval; }
+        const PyramidGrid* GetGrid() const { return m_grid; }
+
+        bool IsAtBottomRow() const
+        {
+            return m_grid && m_grid->IsAtBottomRow(m_gridRow);
+        }
 
         int GetTargetRow() const
         {
@@ -80,7 +94,6 @@ namespace dae
 
             if (discCol < 0)
             {
-                // Left-side disc at [discRow][-1]
                 m_discNeighbourRow = discRow + 1;
                 m_discNeighbourCol = 0;
                 m_discFinalDRow = (discRow >= 0) ? 0 : -1;
@@ -88,7 +101,6 @@ namespace dae
             }
             else
             {
-                // Right-side disc at [discRow][discRow+1]
                 m_discNeighbourRow = discRow + 1;
                 m_discNeighbourCol = discCol;
                 m_discFinalDRow = (discRow >= 0) ? 0 : -1;
@@ -96,15 +108,16 @@ namespace dae
             }
         }
 
-        // True while coily is doing the disc-chase fall; must not be removed by FinishDiscRide
-        bool IsDoingDiscChase() const { return m_awardDiscPointsOnFall; }
+        // True while Coily is doing the disc-chase fall; prevents FinishDiscRide from removing her
+        bool IsDoingDiscChase() const { return m_isDoingDiscChase; }
 
     private:
         void ApplyArcPosition(float t)
         {
+            float arcH = m_arcHeight * PIXEL_SCALE;
             float x = m_fromPos.x + (m_toPos.x - m_fromPos.x) * t;
             float y = m_fromPos.y + (m_toPos.y - m_fromPos.y) * t;
-            float arcY = -COILY_ARC_HEIGHT * std::sin(t * 3.14159265f);
+            float arcY = -arcH * std::sin(t * 3.14159265f);
             GetOwner()->SetLocalPosition(x, y + arcY);
         }
 
@@ -119,7 +132,11 @@ namespace dae
 
         QbertPlayerComponent* m_qbert{ nullptr };
         Scene* m_scene{ nullptr };
+        const PyramidGrid* m_grid{ nullptr };
         float m_freezeDuration{ 1.5f };
+        float m_arcHeight{ 12.f };
+        float m_fallGravity{ 800.f };
+        float m_introSpeed{ 400.f };
 
         std::unique_ptr<CoilyBaseState> m_state;
         float m_hopInterval;
@@ -138,12 +155,11 @@ namespace dae
         bool m_introInitialized{ false };
         glm::vec2 m_introFrom{ 0.f, 0.f };
         glm::vec2 m_introTo{ 0.f, 0.f };
-        float m_introSpeed{ 400.f };
         float m_introProgress{ 0.f };
         float m_introLength{ 1.f };
 
         bool m_fallingOff{ false };
-        bool m_awardDiscPointsOnFall{ false };
+        bool m_isDoingDiscChase{ false };
         glm::vec2 m_fallPos{ 0.f, 0.f };
         float m_fallSpeed{ 0.f };
 

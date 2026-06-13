@@ -6,16 +6,8 @@
 
 namespace dae
 {
-    static constexpr float COILY_FALL_GRAVITY = 800.f;
-
-    static bool CoilyInBounds(int row, int col)
-    {
-        return row >= 0 && row <= 6 && col >= 0 && col <= row;
-    }
-
-    // hop direction table: 0=up-right, 1=up-left, 2=down-right, 3=down-left
-    static const int C_dRow[4] = { -1, -1,  1,  1 };
-    static const int C_dCol[4] = { 0, -1,  1,  0 };
+    static const int C_dRow[4] = { -1, -1, 1, 1 };
+    static const int C_dCol[4] = { 0, -1, 1, 0 };
 
     void CoilyComponent::ForceJumpOff()
     {
@@ -24,7 +16,7 @@ namespace dae
         {
             int nr = m_gridRow + C_dRow[dir];
             int nc = m_gridCol + C_dCol[dir];
-            if (!CoilyInBounds(nr, nc))
+            if (!m_grid || !m_grid->IsValid(nr, nc))
             {
                 BeginFallOff(C_dRow[dir], C_dCol[dir]);
                 return;
@@ -39,13 +31,18 @@ namespace dae
         int srcW = sheet ? sheet->GetFrameWidth() : 16;
         int srcH = sheet ? sheet->GetFrameHeight() : 32;
 
-        m_fromPos = GridToCharacterPos(m_gridRow, m_gridCol, srcW, srcH);
+        m_fromPos = m_grid
+            ? GridToCharacterPos(m_gridRow, m_gridCol, srcW, srcH)
+            : glm::vec2{ 0.f, 0.f };
         int offRow = m_gridRow + dRow;
         int offCol = m_gridCol + dCol;
-        m_toPos = GridToCharacterPos(offRow, offCol, srcW, srcH);
+        m_toPos = m_grid
+            ? GridToCharacterPos(offRow, offCol, srcW, srcH)
+            : glm::vec2{ 0.f, 0.f };
         m_destRow = offRow;
         m_destCol = offCol;
         m_hopDuration = m_hopInterval * 0.5f;
+        if (m_hopDuration <= 0.f) m_hopDuration = 0.001f;
         m_hopPhase = 0.f;
         m_hopping = true;
         m_fallingOff = true;
@@ -63,12 +60,16 @@ namespace dae
             int srcW = sheet ? sheet->GetFrameWidth() : 16;
             int srcH = sheet ? sheet->GetFrameHeight() : 32;
 
-            m_introTo = GridToCharacterPos(m_gridRow, m_gridCol, srcW, srcH);
-            static constexpr float INTRO_ABOVE_DIST = 200.f;
-            m_introFrom = { m_introTo.x, m_introTo.y - INTRO_ABOVE_DIST };
+            m_introTo = m_grid
+                ? GridToCharacterPos(m_gridRow, m_gridCol, srcW, srcH)
+                : glm::vec2{ 0.f, 0.f };
 
-            float dy = m_introTo.y - m_introFrom.y;
-            m_introLength = std::abs(dy);
+            // Start just above the window top
+            float textureH = static_cast<float>(srcH) * PIXEL_SCALE;
+            m_introFrom = { m_introTo.x, -textureH };
+
+            m_introLength = m_introTo.y - m_introFrom.y;
+            if (m_introLength <= 0.f) m_introLength = 0.001f;
             m_introProgress = 0.f;
 
             GetOwner()->SetLocalPosition(m_introFrom.x, m_introFrom.y);
@@ -103,23 +104,14 @@ namespace dae
             return;
         }
 
-        // Gravity fall straight down after the off-edge hop completes
         if (m_fallingOff && !m_hopping)
         {
-            m_fallSpeed += COILY_FALL_GRAVITY * deltaTime;
+            m_fallSpeed += m_fallGravity * deltaTime;
             m_fallPos.y += m_fallSpeed * deltaTime;
             GetOwner()->SetLocalPosition(m_fallPos.x, m_fallPos.y);
 
-            if (m_fallPos.y > WINDOW_H + 64.f)
-            {
-                if (m_awardDiscPointsOnFall)
-                {
-                    auto& gsm = GameStateManager::GetInstance();
-                    if (gsm.IsDiscRiding())
-                        gsm.OnCoilyFellDuringDisc(m_qbert);
-                }
+            if (m_fallPos.y > static_cast<float>(GameWindowH()) + 64.f)
                 GetOwner()->MarkForRemoval();
-            }
             return;
         }
 
@@ -168,7 +160,11 @@ namespace dae
                 if (m_gridRow == m_discNeighbourRow && m_gridCol == m_discNeighbourCol)
                 {
                     m_hasDiscTarget = false;
-                    m_awardDiscPointsOnFall = true;
+                    m_isDoingDiscChase = true;
+
+                    // Award points immediately when the fall hop begins
+                    GameStateManager::GetInstance().OnCoilyFellDuringDisc(m_gridRow, m_gridCol);
+
                     if (m_scene)
                         m_scene->MoveToBack(GetOwner());
                     BeginFallOff(m_discFinalDRow, m_discFinalDCol);

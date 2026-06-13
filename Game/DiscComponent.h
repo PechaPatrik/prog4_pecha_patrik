@@ -11,10 +11,8 @@ namespace dae
 {
     static constexpr int DISC_SRC_W = 16;
     static constexpr int DISC_SRC_H = 10;
-    // Each color group occupies 5 columns but only the first 4 are the animation frames
     static constexpr int DISC_ANIM_FRAMES = 4;
     static constexpr int DISC_GROUP_STRIDE = 5;
-    static constexpr float DISC_FRAME_DURATION = 0.12f;
 
     inline glm::vec2 DiscWorldPos(int row, int col)
     {
@@ -34,7 +32,8 @@ namespace dae
     {
     public:
         DiscComponent(GameObject* pOwner, int row, int col, int colorGroupIndex,
-            float flightDuration, int pointsCoilyDisc, float freezeDuration)
+            float flightDuration, int pointsCoilyDisc, float freezeDuration,
+            float frameDuration = 0.12f, float discDropDuration = 0.25f)
             : Component(pOwner)
             , m_row(row)
             , m_col(col)
@@ -42,6 +41,8 @@ namespace dae
             , m_flightDuration(flightDuration)
             , m_pointsCoilyDisc(pointsCoilyDisc)
             , m_freezeDuration(freezeDuration)
+            , m_frameDuration(frameDuration)
+            , m_discDropDuration(discDropDuration)
         {
         }
 
@@ -53,30 +54,27 @@ namespace dae
         DiscComponent& operator=(DiscComponent&&) = delete;
 
         void SetScene(Scene* scene) { m_scene = scene; }
+        void SetPyramidGrid(const PyramidGrid* grid) { m_grid = grid; }
 
         void Update(float deltaTime) override
         {
             if (m_done) return;
 
-            // Always animate regardless of whether we are riding or idle
             m_frameTimer += deltaTime;
-            if (m_frameTimer >= DISC_FRAME_DURATION)
+            if (m_frameTimer >= m_frameDuration)
             {
-                m_frameTimer -= DISC_FRAME_DURATION;
+                m_frameTimer -= m_frameDuration;
                 m_currentFrame = (m_currentFrame + 1) % DISC_ANIM_FRAMES;
                 auto* sheet = GetOwner()->GetComponent<SpritesheetComponent>();
                 if (sheet)
                     sheet->SetFrame(m_firstFrame + m_currentFrame, 0);
             }
 
-            // During phase 1 of the ride, follow Q*bert's position
             if (m_riding && m_rider)
             {
                 glm::vec2 riderPos = m_rider->GetDeathWorldPos();
                 float discW = static_cast<float>(DISC_SRC_W) * PIXEL_SCALE;
                 float discH = static_cast<float>(DISC_SRC_H) * PIXEL_SCALE;
-                // Center the disc under Q*bert: disc center-x matches rider center-x,
-                // disc top sits just below rider bottom
                 int riderSrcW = 17;
                 int riderSrcH = 16;
                 float riderW = static_cast<float>(riderSrcW) * PIXEL_SCALE;
@@ -87,7 +85,6 @@ namespace dae
             }
         }
 
-        // Called after the hop animation completes and Q*bert lands on this disc's tile.
         bool CheckLanded(QbertPlayerComponent* player, int landedRow, int landedCol)
         {
             if (m_riding || m_done) return false;
@@ -98,9 +95,10 @@ namespace dae
 
             glm::vec2 playerStart = player->GetDeathWorldPos();
 
-            glm::vec2 apex = GridToScreen(0, 0);
+            int apexCol = (m_grid && !m_grid->rowOffsets.empty()) ? m_grid->rowOffsets[0] : 0;
+            glm::vec2 apex = m_grid ? GridToScreen(0, apexCol) : glm::vec2{ 0.f, 0.f };
             glm::vec2 hoverPos = {
-                GridToCharacterPos(0, 0, 17, 16).x,
+                GridToCharacterPos(0, apexCol, 17, 16).x,
                 apex.y - static_cast<float>(CUBE_SRC_H) * PIXEL_SCALE
             };
 
@@ -111,15 +109,14 @@ namespace dae
                 m_row, m_col,
                 m_flightDuration,
                 m_pointsCoilyDisc,
-                m_freezeDuration);
+                m_freezeDuration,
+                m_discDropDuration);
 
             return true;
         }
 
-        // Called by QbertPlayerComponent at the start of the hover phase to stop following
         void StopRiding() { m_riding = false; m_rider = nullptr; }
 
-        // Called by QbertPlayerComponent to despawn the disc (marks for removal)
         void Despawn()
         {
             m_done = true;
@@ -138,7 +135,10 @@ namespace dae
         float m_flightDuration;
         int m_pointsCoilyDisc;
         float m_freezeDuration;
+        float m_frameDuration;
+        float m_discDropDuration;
         Scene* m_scene{ nullptr };
+        const PyramidGrid* m_grid{ nullptr };
 
         int m_currentFrame{ 0 };
         float m_frameTimer{ 0.f };

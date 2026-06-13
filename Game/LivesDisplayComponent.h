@@ -2,31 +2,31 @@
 #include "Component.h"
 #include "IObserver.h"
 #include "ImageComponent.h"
-#include <array>
+#include <vector>
 
 namespace dae
 {
-    static constexpr int MAX_LIVES = 3;
-
     class LivesDisplayComponent final : public Component, public IObserver
     {
     public:
-        LivesDisplayComponent(GameObject* pOwner, int startingLives = MAX_LIVES)
+        LivesDisplayComponent(GameObject* pOwner, int maxLives = 3)
             : Component(pOwner)
-            , m_lives(startingLives)
+            , m_maxLives(maxLives)
+            , m_lives(maxLives)
+            , m_hearts(maxLives, nullptr)
         {
         }
 
         void SetHeart(int index, ImageComponent* heart)
         {
-            if (index >= 0 && index < MAX_LIVES)
+            if (index >= 0 && index < m_maxLives)
                 m_hearts[index] = heart;
         }
 
         void Update(float) override
         {
             if (!m_dirty) return;
-            for (int i = 0; i < MAX_LIVES; ++i)
+            for (int i = 0; i < m_maxLives; ++i)
                 if (m_hearts[i])
                     m_hearts[i]->SetVisible(i < m_lives);
             m_dirty = false;
@@ -42,8 +42,9 @@ namespace dae
         }
 
     private:
+        int m_maxLives;
         int m_lives;
         bool m_dirty{ false };
-        std::array<ImageComponent*, MAX_LIVES> m_hearts{ nullptr, nullptr, nullptr };
+        std::vector<ImageComponent*> m_hearts;
     };
 }

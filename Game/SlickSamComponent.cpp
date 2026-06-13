@@ -18,12 +18,16 @@ namespace dae
             int srcW = sheet ? sheet->GetFrameWidth() : SLICK_SAM_SRC_W;
             int srcH = sheet ? sheet->GetFrameHeight() : SLICK_SAM_SRC_H;
 
-            m_introTo = GridToCharacterPos(m_gridRow, m_gridCol, srcW, srcH);
-            static constexpr float INTRO_ABOVE_DIST = 200.f;
-            m_introFrom = { m_introTo.x, m_introTo.y - INTRO_ABOVE_DIST };
+            m_introTo = m_grid
+                ? GridToCharacterPos(m_gridRow, m_gridCol, srcW, srcH)
+                : glm::vec2{ 0.f, 0.f };
 
-            float dy = m_introTo.y - m_introFrom.y;
-            m_introLength = std::abs(dy);
+            // Start just above the top of the window
+            float textureH = static_cast<float>(srcH) * PIXEL_SCALE;
+            m_introFrom = { m_introTo.x, -textureH };
+
+            m_introLength = m_introTo.y - m_introFrom.y;
+            if (m_introLength <= 0.f) m_introLength = 0.001f;
             m_introProgress = 0.f;
 
             GetOwner()->SetLocalPosition(m_introFrom.x, m_introFrom.y);
@@ -68,10 +72,14 @@ namespace dae
 
         if (m_falling)
         {
-            m_fallSpeed += SLICK_SAM_GRAVITY * deltaTime;
+            auto* sheet = GetOwner()->GetComponent<SpritesheetComponent>();
+            int srcH = sheet ? sheet->GetFrameHeight() : SLICK_SAM_SRC_H;
+            float margin = static_cast<float>(srcH) * PIXEL_SCALE * 2.f;
+
+            m_fallSpeed += m_fallGravity * deltaTime;
             m_fallPos.y += m_fallSpeed * deltaTime;
             GetOwner()->SetLocalPosition(m_fallPos.x, m_fallPos.y);
-            if (m_fallPos.y > WINDOW_H + SLICK_SAM_SRC_H * PIXEL_SCALE * 2.f)
+            if (m_fallPos.y > static_cast<float>(GameWindowH()) + margin)
                 GetOwner()->MarkForRemoval();
             return;
         }

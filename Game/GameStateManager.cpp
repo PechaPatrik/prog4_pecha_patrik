@@ -61,9 +61,9 @@ namespace dae
         m_dyingPlayer = dyingPlayer;
 
         auto curseGo = std::make_unique<GameObject>();
-        static constexpr float CURSE_OFFSET_Y = 24.f * PIXEL_SCALE;
-        static constexpr float CURSE_OFFSET_X = 12.f * PIXEL_SCALE;
-        curseGo->SetLocalPosition(cursePosX - CURSE_OFFSET_X, cursePosY - CURSE_OFFSET_Y);
+        float offsetX = m_curseOffsetX * PIXEL_SCALE;
+        float offsetY = m_curseOffsetY * PIXEL_SCALE;
+        curseGo->SetLocalPosition(cursePosX - offsetX, cursePosY - offsetY);
         curseGo->AddComponent<ImageComponent>("Qbert Curses.png", PIXEL_SCALE);
         m_curseGameObject = curseGo.get();
         scene->Add(std::move(curseGo));
@@ -106,17 +106,18 @@ namespace dae
 
     void GameStateManager::TriggerDiscRide(QbertPlayerComponent* rider, Scene* scene,
         int discRow, int discCol, float flightDuration,
-        int pointsCoilyDisc, float freezeDuration)
+        int pointsCoilyDisc, float freezeDuration, float discDropDuration)
     {
         if (m_discRiding || m_frozen) return;
 
         m_discRiding = true;
         m_discRideTimer = 0.f;
-        // Total duration = flight (rise + hover) + fixed drop phase
-        m_discRideDuration = flightDuration + DISC_DROP_DURATION;
+        float safeDropDuration = discDropDuration > 0.f ? discDropDuration : 0.001f;
+        m_discRideDuration = flightDuration + safeDropDuration;
         m_discRider = rider;
         m_pointsCoilyDisc = pointsCoilyDisc;
         m_discFreezeDuration = freezeDuration;
+        m_discDropDuration = safeDropDuration;
         m_discScene = scene;
 
         DismissNonCoilyEnemies();
@@ -142,11 +143,21 @@ namespace dae
         }
     }
 
-    void GameStateManager::OnCoilyFellDuringDisc(QbertPlayerComponent* nearestPlayer) const
+    void GameStateManager::OnCoilyFellDuringDisc(int coilyRow, int coilyCol) const
     {
-        if (!m_discRiding) return;
-        if (nearestPlayer)
-            nearestPlayer->AddScore(m_pointsCoilyDisc);
+        QbertPlayerComponent* nearest = nullptr;
+        int bestDist = INT_MAX;
+        for (auto* player : m_players)
+        {
+            int dist = std::abs(player->GetGridRow() - coilyRow) + std::abs(player->GetGridCol() - coilyCol);
+            if (dist < bestDist)
+            {
+                bestDist = dist;
+                nearest = player;
+            }
+        }
+        if (nearest)
+            nearest->AddScore(m_pointsCoilyDisc);
     }
 
     void GameStateManager::FinishDiscRide(Scene* scene)
@@ -157,7 +168,6 @@ namespace dae
         {
             if (entry.type == EnemyEntry::Type::Coily)
             {
-                // If coily is chasing the disc tile she manages her own removal
                 auto* coily = static_cast<CoilyComponent*>(entry.component);
                 if (coily->IsDoingDiscChase()) continue;
             }
@@ -213,13 +223,11 @@ namespace dae
             return;
         }
 
-        // Remove entries whose GameObjects have already been marked for removal
         m_enemies.erase(
             std::remove_if(m_enemies.begin(), m_enemies.end(),
                 [](const EnemyEntry& e) { return e.markedForRemoval; }),
             m_enemies.end());
 
-        // Continuous overlap check: catches simultaneous-landing timing gaps
         for (auto* player : m_players)
         {
             if (player->IsHopping() || player->IsDead() || player->IsOnDisc()) continue;

@@ -9,12 +9,13 @@
 
 namespace dae
 {
-    static constexpr float QBERT_ARC_HEIGHT = 12.f * PIXEL_SCALE;
-    static constexpr float DISC_DROP_DURATION = 0.25f;
+    // direction: 0=up-right(W), 1=up-left(A), 2=down-right(D), 3=down-left(S)
+    static const int QbertDRow[4] = { -1, -1, 1, 1 };
+    static const int QbertDCol[4] = { 0, -1, 1, 0 };
 
-    // direction: 0=up-right(W), 1=up-left(A), 2=down-right(D), 3=down-left(S), made to match spritesheet columns
-    static const int QbertDRow[4] = { -1, -1,  1,  1 };
-    static const int QbertDCol[4] = { 0, -1,  1,  0 };
+    // Duration of the drop phase at the end of a disc ride (in seconds)
+    // Kept as a configurable member, defaulting here for in-code fallback only
+    static constexpr float DISC_DROP_DURATION_DEFAULT = 0.25f;
 
     class Scene;
     class DiscComponent;
@@ -46,6 +47,9 @@ namespace dae
         void SetFreezeDuration(float d) { m_freezeDuration = d; }
         void SetPointsPerCubeChange(int pts) { m_pointsPerCubeChange = pts; }
         void SetPointsSlickSam(int pts) { m_pointsSlickSam = pts; }
+        void SetArcHeight(float h) { m_arcHeight = h; }
+        void SetHopDuration(float d) { m_hopDuration = d > 0.f ? d : 0.001f; }
+        void SetDiscDropDuration(float d) { m_discDropDuration = d > 0.f ? d : 0.001f; }
 
         void Update(float deltaTime) override;
 
@@ -65,7 +69,6 @@ namespace dae
         int GetLives() const { return m_lives; }
         int GetScore() const { return m_score; }
 
-        // World position to use for placing the curse image and for respawn
         glm::vec2 GetDeathWorldPos() const
         {
             glm::vec2 wp = const_cast<GameObject*>(GetOwner())->GetWorldPosition();
@@ -95,10 +98,11 @@ namespace dae
             m_onDisc = false;
             m_discRiding = false;
             m_disc = nullptr;
+            // Disc always lands at the apex tile. Assumes row 0 has offset 0.
             m_gridRow = 0;
-            m_gridCol = 0;
+            m_gridCol = m_grid ? m_grid->rowOffsets[0] : 0;
             m_respawnRow = 0;
-            m_respawnCol = 0;
+            m_respawnCol = m_gridCol;
             SnapToGrid();
             if (m_grid)
             {
@@ -125,6 +129,8 @@ namespace dae
 
             m_discPhase1Duration = flightDuration * 0.5f;
             m_discPhase2Duration = flightDuration * 0.5f;
+            if (m_discPhase1Duration <= 0.f) m_discPhase1Duration = 0.001f;
+            if (m_discPhase2Duration <= 0.f) m_discPhase2Duration = 0.001f;
 
             m_discStartPos = playerOnDiscPos;
             m_discHoverPos = hoverPos;
@@ -132,7 +138,10 @@ namespace dae
             auto* sheet = GetOwner()->GetComponent<SpritesheetComponent>();
             int srcW = sheet ? sheet->GetFrameWidth() : 17;
             int srcH = sheet ? sheet->GetFrameHeight() : 16;
-            m_discDropPos = GridToCharacterPos(0, 0, srcW, srcH);
+            int apexCol = (m_grid && !m_grid->rowOffsets.empty()) ? m_grid->rowOffsets[0] : 0;
+            m_discDropPos = m_grid
+                ? GridToCharacterPos(0, apexCol, srcW, srcH)
+                : glm::vec2{ 0.f, 0.f };
 
             GetOwner()->SetLocalPosition(playerOnDiscPos.x, playerOnDiscPos.y);
         }
@@ -160,12 +169,15 @@ namespace dae
             auto* sheet = GetOwner()->GetComponent<SpritesheetComponent>();
             int srcW = sheet ? sheet->GetFrameWidth() : 17;
             int srcH = sheet ? sheet->GetFrameHeight() : 16;
-            m_fromPos = GridToCharacterPos(m_gridRow, m_gridCol, srcW, srcH);
-            m_toPos = GridToCharacterPos(destRow, destCol, srcW, srcH);
+            m_fromPos = m_grid
+                ? GridToCharacterPos(m_gridRow, m_gridCol, srcW, srcH)
+                : glm::vec2{ 0.f, 0.f };
+            m_toPos = m_grid
+                ? GridToCharacterPos(destRow, destCol, srcW, srcH)
+                : glm::vec2{ 0.f, 0.f };
             m_destRow = destRow;
             m_destCol = destCol;
             m_lastDir = dir;
-            m_hopDuration = 0.3f;
             m_hopPhase = 0.f;
             m_hopping = true;
             m_hopOffEdge = false;
@@ -176,12 +188,15 @@ namespace dae
             auto* sheet = GetOwner()->GetComponent<SpritesheetComponent>();
             int srcW = sheet ? sheet->GetFrameWidth() : 17;
             int srcH = sheet ? sheet->GetFrameHeight() : 16;
-            m_fromPos = GridToCharacterPos(m_gridRow, m_gridCol, srcW, srcH);
-            m_toPos = GridToCharacterPos(destRow, destCol, srcW, srcH);
+            m_fromPos = m_grid
+                ? GridToCharacterPos(m_gridRow, m_gridCol, srcW, srcH)
+                : glm::vec2{ 0.f, 0.f };
+            m_toPos = m_grid
+                ? GridToCharacterPos(destRow, destCol, srcW, srcH)
+                : glm::vec2{ 0.f, 0.f };
             m_destRow = destRow;
             m_destCol = destCol;
             m_lastDir = dir;
-            m_hopDuration = 0.3f;
             m_hopPhase = 0.f;
             m_hopping = true;
             m_hopOffEdge = true;
@@ -191,9 +206,10 @@ namespace dae
 
         void ApplyArcPosition(float t)
         {
+            float arcH = m_arcHeight * PIXEL_SCALE;
             float x = m_fromPos.x + (m_toPos.x - m_fromPos.x) * t;
             float y = m_fromPos.y + (m_toPos.y - m_fromPos.y) * t;
-            float arcY = -QBERT_ARC_HEIGHT * std::sin(t * 3.14159265f);
+            float arcY = -arcH * std::sin(t * 3.14159265f);
             GetOwner()->SetLocalPosition(x, y + arcY);
         }
 
@@ -211,7 +227,9 @@ namespace dae
             auto* sheet = GetOwner()->GetComponent<SpritesheetComponent>();
             int srcW = sheet ? sheet->GetFrameWidth() : 17;
             int srcH = sheet ? sheet->GetFrameHeight() : 16;
-            glm::vec2 pos = GridToCharacterPos(m_gridRow, m_gridCol, srcW, srcH);
+            glm::vec2 pos = m_grid
+                ? GridToCharacterPos(m_gridRow, m_gridCol, srcW, srcH)
+                : glm::vec2{ 0.f, 0.f };
             GetOwner()->SetLocalPosition(pos.x, pos.y);
         }
 
@@ -228,6 +246,9 @@ namespace dae
         int m_pointsPerCubeChange{ 25 };
         int m_pointsSlickSam{ 300 };
         float m_freezeDuration{ 1.5f };
+        float m_arcHeight{ 12.f };
+        float m_hopDuration{ 0.3f };
+        float m_discDropDuration{ DISC_DROP_DURATION_DEFAULT };
         Subject m_subject;
 
         int m_pendingDirection{ 0 };
@@ -237,7 +258,6 @@ namespace dae
         bool m_hopping{ false };
         bool m_hopOffEdge{ false };
         float m_hopPhase{ 0.f };
-        float m_hopDuration{ 0.3f };
         glm::vec2 m_fromPos{ 0.f, 0.f };
         glm::vec2 m_toPos{ 0.f, 0.f };
         int m_destRow{ 0 };

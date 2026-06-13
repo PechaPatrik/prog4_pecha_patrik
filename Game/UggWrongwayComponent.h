@@ -9,13 +9,8 @@
 
 namespace dae
 {
-    static constexpr float UGG_ARC_DIST = 10.f * PIXEL_SCALE;
-    static constexpr float UGG_FALL_SPEED = 200.f;
-    static constexpr float UGG_GRAVITY = 800.f;
     static constexpr int UGG_SRC_W = 16;
     static constexpr int UGG_SRC_H = 16;
-    // Intro slide speed (pixels per second) from off-screen to spawn tile
-    static constexpr float UGG_INTRO_SPEED = 300.f;
 
     class Scene;
 
@@ -23,15 +18,14 @@ namespace dae
     {
     public:
         UggWrongwayComponent(GameObject* pOwner, bool isLeftSide, float hopInterval = 0.5f,
-            int startRow = PYRAMID_ROWS - 1, int startCol = -1)
+            int startRow = -1, int startCol = -1)
             : Component(pOwner)
             , m_isLeftSide(isLeftSide)
             , m_spriteRow(isLeftSide ? 1 : 0)
             , m_spriteCol(isLeftSide ? 0 : 2)
             , m_hopInterval(hopInterval)
-            , m_gridRow(startRow)
-            // startCol -1 means use default per side
-            , m_gridCol(startCol < 0 ? (isLeftSide ? 0 : (PYRAMID_ROWS - 1)) : startCol)
+            , m_pendingStartRow(startRow)
+            , m_pendingStartCol(startCol)
         {
         }
 
@@ -45,6 +39,10 @@ namespace dae
         void SetQbert(QbertPlayerComponent* qbert) { m_qbert = qbert; }
         void SetScene(Scene* scene) { m_scene = scene; }
         void SetFreezeDuration(float d) { m_freezeDuration = d; }
+        void SetPyramidGrid(const PyramidGrid* grid) { m_grid = grid; }
+        void SetArcHeight(float h) { m_arcHeight = h; }
+        void SetFallGravity(float g) { m_fallGravity = g; }
+        void SetIntroSpeed(float s) { m_introSpeed = s; }
 
         int GetCollisionDRow() const { return 1; }
         int GetCollisionDCol() const { return m_isLeftSide ? 0 : 1; }
@@ -63,16 +61,28 @@ namespace dae
             BeginFall();
         }
 
-        glm::vec2 GetInitialPos(int charSrcW, int charSrcH) const
-        {
-            return GetSidePos(m_gridRow, m_gridCol, charSrcW, charSrcH);
-        }
-
         bool IsHopping() const { return m_introFalling || m_hopping || m_falling; }
 
         void Update(float deltaTime) override;
 
     private:
+        void ResolveStartPosition()
+        {
+            int lastRow = m_grid ? m_grid->NumRows() - 1 : 6;
+            if (m_pendingStartRow >= 0)
+            {
+                m_gridRow = m_pendingStartRow;
+                m_gridCol = (m_pendingStartCol >= 0)
+                    ? m_pendingStartCol
+                    : (m_isLeftSide ? 0 : lastRow);
+            }
+            else
+            {
+                m_gridRow = lastRow;
+                m_gridCol = m_isLeftSide ? 0 : lastRow;
+            }
+        }
+
         void ChooseAndBeginHop()
         {
             int r = m_gridRow;
@@ -81,14 +91,12 @@ namespace dae
 
             if (rand() % 2 == 0)
             {
-                // Down-right according to current 'down'
                 newRow = m_isLeftSide ? r - 1 : r;
                 newCol = m_isLeftSide ? c : c - 1;
                 m_spriteCol = m_isLeftSide ? 1 : 2;
             }
             else
             {
-                // Down-left according to current 'down'
                 newRow = m_isLeftSide ? r : r - 1;
                 newCol = m_isLeftSide ? c + 1 : c - 1;
                 m_spriteCol = m_isLeftSide ? 0 : 3;
@@ -120,15 +128,17 @@ namespace dae
             m_destRow = destRow;
             m_destCol = destCol;
             m_hopDuration = m_hopInterval * 0.5f;
+            if (m_hopDuration <= 0.f) m_hopDuration = 0.001f;
             m_hopPhase = 0.f;
             m_hopping = true;
         }
 
         void ApplyArcPosition(float t)
         {
+            float arcDist = m_arcHeight * PIXEL_SCALE;
             float x = m_fromPos.x + (m_toPos.x - m_fromPos.x) * t;
             float y = m_fromPos.y + (m_toPos.y - m_fromPos.y) * t;
-            float arc = UGG_ARC_DIST * std::sin(t * 3.14159265f);
+            float arc = arcDist * std::sin(t * 3.14159265f);
             GetOwner()->SetLocalPosition(x + (m_isLeftSide ? -arc : arc), y + arc);
         }
 
@@ -139,12 +149,11 @@ namespace dae
                 sheet->SetFrame(m_spriteCol, m_spriteRow);
         }
 
-        // Anchor point within the cube sprite (source pixels, scaled):
-        // Wrongway (left): 8px from left edge, 12px from bottom edge
-        // Ugg (right): 8px from right edge, 12px from bottom edge
         glm::vec2 GetSidePos(int row, int col, int charSrcW, int) const
         {
-            glm::vec2 cubePos = GridToScreen(row, col);
+            glm::vec2 cubePos = m_grid
+                ? GridToScreen(row, col)
+                : glm::vec2{ 0.f, 0.f };
             float charW = static_cast<float>(charSrcW) * PIXEL_SCALE;
             float anchorX = m_isLeftSide
                 ? cubePos.x + 8.f * PIXEL_SCALE
@@ -154,22 +163,28 @@ namespace dae
             return { spriteX, anchorY };
         }
 
-        static bool IsOnPyramid(int row, int col)
+        bool IsOnPyramid(int row, int col) const
         {
-            return row >= 0 && row < PYRAMID_ROWS && col >= 0 && col <= row;
+            return m_grid && m_grid->IsValid(row, col);
         }
 
         QbertPlayerComponent* m_qbert{ nullptr };
         Scene* m_scene{ nullptr };
+        const PyramidGrid* m_grid{ nullptr };
         float m_freezeDuration{ 1.f };
+        float m_arcHeight{ 12.f };
+        float m_fallGravity{ 800.f };
+        float m_introSpeed{ 400.f };
 
         bool m_isLeftSide;
         int m_spriteRow;
         int m_spriteCol;
         float m_hopInterval;
 
-        int m_gridRow;
-        int m_gridCol;
+        int m_pendingStartRow{ -1 };
+        int m_pendingStartCol{ -1 };
+        int m_gridRow{ 0 };
+        int m_gridCol{ 0 };
 
         bool m_hopping{ false };
         float m_hopPhase{ 0.f };

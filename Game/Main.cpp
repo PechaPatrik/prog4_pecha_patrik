@@ -30,6 +30,7 @@
 #include "EnemySpawnerComponent.h"
 #include "GameStateManager.h"
 #include "GsmUpdaterComponent.h"
+#include "GameScale.h"
 #include <filesystem>
 #include <array>
 namespace fs = std::filesystem;
@@ -74,6 +75,7 @@ static void LoadLevel(int levelIndex, int round)
     auto& gsm = dae::GameStateManager::GetInstance();
 
     gsm.Reset();
+    gsm.SetCurseOffset(g_gameConfig.curseOffsetX, g_gameConfig.curseOffsetY);
 
     input.UnbindKeyboardCommand(SDL_SCANCODE_W, dae::Controller::KeyState::Down);
     input.UnbindKeyboardCommand(SDL_SCANCODE_A, dae::Controller::KeyState::Down);
@@ -130,7 +132,7 @@ static void LoadLevel(int levelIndex, int round)
     iconSheet->SetFrame(levelData.roundColorColumns[colorColIdx], 1);
     scene.Add(std::move(iconGo));
 
-    float rightX = dae::WINDOW_W - 200.f;
+    float rightX = static_cast<float>(dae::GameWindowW()) - 200.f;
     auto levelLabelGo = std::make_unique<dae::GameObject>();
     auto* levelLabelText = levelLabelGo->AddComponent<dae::TextComponent>("LEVEL:", mcFontSmall);
     levelLabelText->SetColor({ 30, 200, 30, 255 });
@@ -160,10 +162,10 @@ static void LoadLevel(int levelIndex, int round)
     float heartStartY = changeY + 48.f;
 
     auto livesGo = std::make_unique<dae::GameObject>();
-    auto* livesDisplay = livesGo->AddComponent<dae::LivesDisplayComponent>();
+    auto* livesDisplay = livesGo->AddComponent<dae::LivesDisplayComponent>(g_gameConfig.maxLives);
     scene.Add(std::move(livesGo));
 
-    for (int i = 0; i < dae::MAX_LIVES; ++i)
+    for (int i = 0; i < g_gameConfig.maxLives; ++i)
     {
         auto heartGo = std::make_unique<dae::GameObject>();
         heartGo->SetLocalPosition(10.f, heartStartY + i * (heartRenderedH + 4.f));
@@ -174,16 +176,21 @@ static void LoadLevel(int levelIndex, int round)
 
     g_pyramidGrid = dae::BuildPyramid(scene, levelData, round);
 
+    int apexCol = g_pyramidGrid.rowOffsets.empty() ? 0 : g_pyramidGrid.rowOffsets[0];
+
     auto qbertGo = std::make_unique<dae::GameObject>();
-    glm::vec2 startPos = dae::GridToCharacterPos(0, 0, QBERT_SRC_W, QBERT_SRC_H);
+    glm::vec2 startPos = dae::GridToCharacterPos(0, apexCol, QBERT_SRC_W, QBERT_SRC_H);
     qbertGo->SetLocalPosition(startPos.x, startPos.y);
     qbertGo->AddComponent<dae::SpritesheetComponent>("Qbert P1 Spritesheet.png", QBERT_SRC_W, QBERT_SRC_H);
-    auto* qbert = qbertGo->AddComponent<dae::QbertPlayerComponent>(0, 0, 0, 3);
+    auto* qbert = qbertGo->AddComponent<dae::QbertPlayerComponent>(0, 0, apexCol, g_gameConfig.maxLives);
     qbert->SetPyramidGrid(&g_pyramidGrid);
     qbert->SetScene(&scene);
     qbert->SetFreezeDuration(g_gameConfig.freezeDuration);
     qbert->SetPointsPerCubeChange(g_gameConfig.pointsPerCubeChange);
     qbert->SetPointsSlickSam(g_gameConfig.pointsSlickSam);
+    qbert->SetArcHeight(g_gameConfig.arcHeight);
+    qbert->SetHopDuration(g_gameConfig.hopDurationQbert);
+    qbert->SetDiscDropDuration(g_gameConfig.discDropDuration);
     qbert->AddObserver(scoreObs);
     qbert->AddObserver(livesDisplay);
 
@@ -226,7 +233,15 @@ int main(int, char* [])
     if (!fs::exists(g_dataLocation))
         g_dataLocation = "../Data/";
 #endif
-    dae::Minigin engine(g_dataLocation);
+
+    // Load config first so PIXEL_SCALE is set before anything else runs
+    g_gameConfig = dae::LoadGameConfig((g_dataLocation / "game_config.json").string());
+    dae::PIXEL_SCALE = g_gameConfig.pixelScale;
+
+    int windowW = dae::GameWindowW();
+    int windowH = dae::GameWindowH();
+
+    dae::Minigin engine(g_dataLocation, windowW, windowH);
 
 #if _DEBUG
     auto soundSystem = std::make_unique<dae::LoggingSoundSystem>(
@@ -239,8 +254,6 @@ int main(int, char* [])
     dae::ServiceLocator::RegisterSoundSystem(std::move(soundSystem));
 
     std::srand(static_cast<unsigned int>(std::time(nullptr)));
-
-    g_gameConfig = dae::LoadGameConfig((g_dataLocation / "game_config.json").string());
 
     engine.Run([]()
         {
