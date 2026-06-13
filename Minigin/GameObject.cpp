@@ -7,6 +7,7 @@ using namespace dae;
 
 void GameObject::Update(float deltaTime)
 {
+	if (!m_active) return;
 	for (auto& component : m_components)
 	{
 		if (!component->IsMarkedForRemoval())
@@ -22,6 +23,7 @@ void GameObject::Update(float deltaTime)
 
 void dae::GameObject::FixedUpdate(float fixedTimeStep)
 {
+	if (!m_active) return;
 	for (auto& component : m_components)
 	{
 		if (!component->IsMarkedForRemoval())
@@ -33,6 +35,7 @@ void dae::GameObject::FixedUpdate(float fixedTimeStep)
 
 void GameObject::Render() const
 {
+	if (!m_active) return;
 	for (const auto& component : m_components)
 	{
 		if (!component->IsMarkedForRemoval())

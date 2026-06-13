@@ -21,9 +21,6 @@ namespace dae
         void Update(float) override {}
         void Render() const override;
 
-        void SetVisible(bool visible) { m_visible = visible; }
-        bool IsVisible() const { return m_visible; }
-
     private:
         std::shared_ptr<Texture2D> m_texture{};
         float m_scale{ 1.f };

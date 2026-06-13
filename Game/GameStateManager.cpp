@@ -24,6 +24,10 @@ namespace dae
         m_discRideTimer = 0.f;
         m_discRider = nullptr;
         m_discScene = nullptr;
+        m_roundClear = false;
+        m_bonusScreen = false;
+        m_bonusPoints = 0;
+        m_advanceCallback = nullptr;
     }
 
     void GameStateManager::RegisterPlayer(QbertPlayerComponent* player)
@@ -67,6 +71,38 @@ namespace dae
         curseGo->AddComponent<ImageComponent>("Qbert Curses.png", PIXEL_SCALE);
         m_curseGameObject = curseGo.get();
         scene->Add(std::move(curseGo));
+    }
+
+    void GameStateManager::TriggerRoundClear(float duration, int bonusPoints,
+        float bonusDisplayDuration, std::function<void()> advanceCallback)
+    {
+        if (m_frozen || m_discRiding) return;
+
+        m_frozen = true;
+        m_freezeTimer = 0.f;
+        m_freezeDuration = duration;
+        m_roundClear = true;
+        m_bonusPoints = bonusPoints;
+        m_bonusDisplayDuration = bonusDisplayDuration;
+        m_advanceCallback = std::move(advanceCallback);
+    }
+
+    void GameStateManager::BeginBonusPhase()
+    {
+        for (auto& entry : m_enemies)
+            entry.markForRemoval();
+        m_enemies.clear();
+
+        for (auto* player : m_players)
+            player->GetGameObject()->SetActive(false);
+
+        for (auto* player : m_players)
+            player->AddScore(m_bonusPoints);
+
+        m_frozen = true;
+        m_freezeTimer = 0.f;
+        m_freezeDuration = m_bonusDisplayDuration;
+        m_bonusScreen = true;
     }
 
     bool GameStateManager::CoilyCanReachDisc(int discRow, int discCol, float flightDuration) const
@@ -202,6 +238,22 @@ namespace dae
             if (m_freezeTimer < m_freezeDuration) return;
 
             m_frozen = false;
+
+            if (m_bonusScreen)
+            {
+                m_bonusScreen = false;
+                auto cb = std::move(m_advanceCallback);
+                m_advanceCallback = nullptr;
+                if (cb) cb();
+                return;
+            }
+
+            if (m_roundClear)
+            {
+                m_roundClear = false;
+                BeginBonusPhase();
+                return;
+            }
 
             if (m_curseGameObject)
             {

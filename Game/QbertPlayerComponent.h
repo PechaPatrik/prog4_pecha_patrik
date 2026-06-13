@@ -13,8 +13,6 @@ namespace dae
     static const int QbertDRow[4] = { -1, -1, 1, 1 };
     static const int QbertDCol[4] = { 0, -1, 1, 0 };
 
-    // Duration of the drop phase at the end of a disc ride (in seconds)
-    // Kept as a configurable member, defaulting here for in-code fallback only
     static constexpr float DISC_DROP_DURATION_DEFAULT = 0.25f;
 
     class Scene;
@@ -51,6 +49,17 @@ namespace dae
         void SetHopDuration(float d) { m_hopDuration = d > 0.f ? d : 0.001f; }
         void SetDiscDropDuration(float d) { m_discDropDuration = d > 0.f ? d : 0.001f; }
 
+        // Call before AddObserver to carry over values from the previous round.
+        // After attaching observers call NotifyInitialValues() to flush to the displays.
+        void SetInitialScore(int score) { m_score = score; }
+        void SetInitialLives(int lives) { m_lives = lives; }
+
+        void NotifyInitialValues()
+        {
+            m_subject.NotifyObservers(GameEvent::ScoreChanged, m_score);
+            m_subject.NotifyObservers(GameEvent::LivesChanged, m_lives);
+        }
+
         void Update(float deltaTime) override;
 
         void RequestMove(int direction)
@@ -68,6 +77,11 @@ namespace dae
         int GetGridCol() const { return m_gridCol; }
         int GetLives() const { return m_lives; }
         int GetScore() const { return m_score; }
+
+        // Returns the number of discs currently registered (alive) for this player
+        int GetDiscCount() const { return static_cast<int>(m_discs.size()); }
+
+        GameObject* GetGameObject() const { return GetOwner(); }
 
         glm::vec2 GetDeathWorldPos() const
         {

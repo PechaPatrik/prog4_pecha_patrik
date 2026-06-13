@@ -1,7 +1,7 @@
 #pragma once
 #include "Component.h"
 #include "IObserver.h"
-#include "ImageComponent.h"
+#include "GameObject.h"
 #include <vector>
 
 namespace dae
@@ -17,10 +17,10 @@ namespace dae
         {
         }
 
-        void SetHeart(int index, ImageComponent* heart)
+        void SetHeart(int index, GameObject* heartGo)
         {
             if (index >= 0 && index < m_maxLives)
-                m_hearts[index] = heart;
+                m_hearts[index] = heartGo;
         }
 
         void Update(float) override
@@ -28,7 +28,7 @@ namespace dae
             if (!m_dirty) return;
             for (int i = 0; i < m_maxLives; ++i)
                 if (m_hearts[i])
-                    m_hearts[i]->SetVisible(i < m_lives);
+                    m_hearts[i]->SetActive(i < m_lives);
             m_dirty = false;
         }
 
@@ -45,6 +45,6 @@ namespace dae
         int m_maxLives;
         int m_lives;
         bool m_dirty{ false };
-        std::vector<ImageComponent*> m_hearts;
+        std::vector<GameObject*> m_hearts;
     };
 }

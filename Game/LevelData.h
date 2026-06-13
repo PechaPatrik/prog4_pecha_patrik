@@ -56,6 +56,11 @@ namespace dae
         int maxLives{ 3 };
         float curseOffsetX{ 12.f };
         float curseOffsetY{ 24.f };
+        float roundClearDuration{ 3.f };
+        float roundClearFrameInterval{ 0.1f };
+        int roundBonusBase{ 1000 };
+        int roundBonusIncrement{ 250 };
+        float roundBonusDisplayDuration{ 2.f };
     };
 
     LevelData LoadLevelData(const std::string& filePath);

@@ -87,7 +87,6 @@ namespace dae
         else
             data.rowOffsets.assign(data.rowWidths.size(), 0);
 
-        // Ensure offsets vector matches rowWidths length
         if (data.rowOffsets.size() < data.rowWidths.size())
             data.rowOffsets.resize(data.rowWidths.size(), 0);
 
@@ -138,6 +137,11 @@ namespace dae
         cfg.maxLives = j.value("maxLives", 3);
         cfg.curseOffsetX = j.value("curseOffsetX", 12.f);
         cfg.curseOffsetY = j.value("curseOffsetY", 24.f);
+        cfg.roundClearDuration = j.value("roundClearDuration", 3.f);
+        cfg.roundClearFrameInterval = j.value("roundClearFrameInterval", 0.1f);
+        cfg.roundBonusBase = j.value("roundBonusBase", 1000);
+        cfg.roundBonusIncrement = j.value("roundBonusIncrement", 250);
+        cfg.roundBonusDisplayDuration = j.value("roundBonusDisplayDuration", 2.f);
         return cfg;
     }
 }

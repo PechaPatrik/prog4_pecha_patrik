@@ -44,6 +44,9 @@ namespace dae
 
         bool IsFrozen() const { return m_frozen; }
         bool IsDiscRiding() const { return m_discRiding; }
+        bool IsRoundClear() const { return m_roundClear; }
+        bool IsBonusScreen() const { return m_bonusScreen; }
+        int GetBonusPoints() const { return m_bonusPoints; }
 
         void SetCurseOffset(float x, float y) { m_curseOffsetX = x; m_curseOffsetY = y; }
 
@@ -54,7 +57,9 @@ namespace dae
             int discRow, int discCol, float flightDuration,
             int pointsCoilyDisc, float freezeDuration, float discDropDuration);
 
-        // Called by CoilyComponent immediately when it begins the disc-chase fall hop
+        void TriggerRoundClear(float duration, int bonusPoints, float bonusDisplayDuration,
+            std::function<void()> advanceCallback);
+
         void OnCoilyFellDuringDisc(int coilyRow, int coilyCol) const;
 
         void Update(float deltaTime, Scene* scene);
@@ -63,7 +68,6 @@ namespace dae
         void CheckPlayerLandedAt(QbertPlayerComponent* player, int row, int col,
             Scene* scene, float freezeDuration);
 
-        // check whether coily can reach discRow/discCol before flightDuration elapses
         bool CoilyCanReachDisc(int discRow, int discCol, float flightDuration) const;
 
     private:
@@ -72,6 +76,7 @@ namespace dae
 
         void FinishDiscRide(Scene* scene);
         void DismissNonCoilyEnemies();
+        void BeginBonusPhase();
 
         std::vector<QbertPlayerComponent*> m_players;
         std::vector<EnemyEntry> m_enemies;
@@ -85,7 +90,13 @@ namespace dae
         QbertPlayerComponent* m_dyingPlayer{ nullptr };
         std::vector<std::function<void()>> m_respawnCallbacks;
 
-        // Disc ride state
+        bool m_roundClear{ false };
+
+        bool m_bonusScreen{ false };
+        int m_bonusPoints{ 0 };
+        float m_bonusDisplayDuration{ 2.f };
+        std::function<void()> m_advanceCallback;
+
         bool m_discRiding{ false };
         float m_discRideTimer{ 0.f };
         float m_discRideDuration{ 2.f };

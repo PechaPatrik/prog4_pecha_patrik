@@ -30,6 +30,8 @@
 #include "EnemySpawnerComponent.h"
 #include "GameStateManager.h"
 #include "GsmUpdaterComponent.h"
+#include "RoundClearAnimatorComponent.h"
+#include "BonusDisplayComponent.h"
 #include "GameScale.h"
 #include <filesystem>
 #include <array>
@@ -44,6 +46,8 @@ static int g_currentRound = 0;
 static fs::path g_dataLocation;
 static dae::PyramidGrid g_pyramidGrid;
 static dae::GameConfig g_gameConfig;
+static int g_persistedScore = 0;
+static int g_persistedLives = -1;
 
 static const std::array<const char*, LEVEL_COUNT> LEVEL_FILES =
 {
@@ -61,11 +65,43 @@ namespace dae
     public:
         void Execute() override
         {
+            auto& gsm = dae::GameStateManager::GetInstance();
+            const auto& players = gsm.GetPlayers();
+            if (!players.empty() && players[0])
+            {
+                g_persistedScore = players[0]->GetScore();
+                g_persistedLives = players[0]->GetLives();
+            }
             g_currentLevel = (g_currentLevel + 1) % LEVEL_COUNT;
             g_currentRound = 0;
             LoadLevel(g_currentLevel, g_currentRound);
         }
     };
+}
+
+static void AdvanceRound()
+{
+    // Capture player state before the scene is torn down
+    auto& gsm = dae::GameStateManager::GetInstance();
+    const auto& players = gsm.GetPlayers();
+    if (!players.empty() && players[0])
+    {
+        g_persistedScore = players[0]->GetScore();
+        g_persistedLives = players[0]->GetLives();
+    }
+
+    dae::LevelData levelData = dae::LoadLevelData(
+        (g_dataLocation / LEVEL_FILES[g_currentLevel]).string());
+    int roundCount = static_cast<int>(levelData.roundColorColumns.size());
+
+    g_currentRound++;
+    if (g_currentRound >= roundCount)
+    {
+        g_currentRound = 0;
+        g_currentLevel = (g_currentLevel + 1) % LEVEL_COUNT;
+    }
+
+    LoadLevel(g_currentLevel, g_currentRound);
 }
 
 static void LoadLevel(int levelIndex, int round)
@@ -98,6 +134,7 @@ static void LoadLevel(int levelIndex, int round)
     scene.Add(std::move(fpsGo));
 
     dae::LevelData levelData = dae::LoadLevelData((g_dataLocation / LEVEL_FILES[levelIndex]).string());
+    int roundsPerLevel = static_cast<int>(levelData.roundColorColumns.size());
 
     auto mcFont = dae::ResourceManager::GetInstance().LoadFont("Minecraft.ttf", 32);
     auto mcFontSmall = dae::ResourceManager::GetInstance().LoadFont("Minecraft.ttf", 24);
@@ -125,11 +162,13 @@ static void LoadLevel(int levelIndex, int round)
     changeText->SetPosition(10.f, changeY);
     scene.Add(std::move(changeLabelGo));
 
-    int colorColIdx = round % static_cast<int>(levelData.roundColorColumns.size());
+    int colorColIdx = round % roundsPerLevel;
+    int colorColumn = levelData.roundColorColumns[colorColIdx];
+
     auto iconGo = std::make_unique<dae::GameObject>();
     iconGo->SetLocalPosition(10.f + 172.f, changeY - 8.f);
     auto* iconSheet = iconGo->AddComponent<dae::SpritesheetComponent>("Color Icons Spritesheet.png", 14, 12);
-    iconSheet->SetFrame(levelData.roundColorColumns[colorColIdx], 1);
+    iconSheet->SetFrame(colorColumn, 1);
     scene.Add(std::move(iconGo));
 
     float rightX = static_cast<float>(dae::GameWindowW()) - 200.f;
@@ -169,14 +208,44 @@ static void LoadLevel(int levelIndex, int round)
     {
         auto heartGo = std::make_unique<dae::GameObject>();
         heartGo->SetLocalPosition(10.f, heartStartY + i * (heartRenderedH + 4.f));
-        auto* heart = heartGo->AddComponent<dae::ImageComponent>("Heart.png", dae::PIXEL_SCALE);
-        livesDisplay->SetHeart(i, heart);
+        heartGo->AddComponent<dae::ImageComponent>("Heart.png", dae::PIXEL_SCALE);
+        livesDisplay->SetHeart(i, heartGo.get());
         scene.Add(std::move(heartGo));
     }
 
     g_pyramidGrid = dae::BuildPyramid(scene, levelData, round);
 
     int apexCol = g_pyramidGrid.rowOffsets.empty() ? 0 : g_pyramidGrid.rowOffsets[0];
+
+    // Bonus display: pre-built in the scene, activated/deactivated by BonusDisplayComponent
+    {
+        float bonusY = dae::PyramidTopY()
+            + static_cast<float>(g_pyramidGrid.NumRows()) * dae::TileStepY()
+            + 12.f * dae::PIXEL_SCALE;
+        float midX = static_cast<float>(dae::GameWindowW()) * 0.5f;
+        static constexpr float GAP = 8.f;
+
+        auto bonusFont = dae::ResourceManager::GetInstance().LoadFont("Minecraft.ttf", 32);
+
+        auto bonusLabelGo = std::make_unique<dae::GameObject>();
+        auto* bonusLabelText = bonusLabelGo->AddComponent<dae::TextComponent>("BONUS", bonusFont);
+        bonusLabelText->SetColor({ 180, 0, 255, 255 });
+        bonusLabelText->SetPosition(midX - 110.f - GAP, bonusY);
+        dae::GameObject* bonusLabelRaw = bonusLabelGo.get();
+        scene.Add(std::move(bonusLabelGo));
+
+        auto bonusValueGo = std::make_unique<dae::GameObject>();
+        auto* bonusValueText = bonusValueGo->AddComponent<dae::TextComponent>("0", bonusFont);
+        bonusValueText->SetColor({ 255, 165, 0, 255 });
+        bonusValueText->SetPosition(midX + GAP, bonusY);
+        dae::GameObject* bonusValueRaw = bonusValueGo.get();
+        scene.Add(std::move(bonusValueGo));
+
+        auto bonusCoordGo = std::make_unique<dae::GameObject>();
+        bonusCoordGo->AddComponent<dae::BonusDisplayComponent>(
+            bonusLabelRaw, bonusValueRaw, bonusValueText);
+        scene.Add(std::move(bonusCoordGo));
+    }
 
     auto qbertGo = std::make_unique<dae::GameObject>();
     glm::vec2 startPos = dae::GridToCharacterPos(0, apexCol, QBERT_SRC_W, QBERT_SRC_H);
@@ -191,16 +260,35 @@ static void LoadLevel(int levelIndex, int round)
     qbert->SetArcHeight(g_gameConfig.arcHeight);
     qbert->SetHopDuration(g_gameConfig.hopDurationQbert);
     qbert->SetDiscDropDuration(g_gameConfig.discDropDuration);
+
+    qbert->SetInitialScore(g_persistedScore);
+    if (g_persistedLives >= 0)
+        qbert->SetInitialLives(g_persistedLives);
+
     qbert->AddObserver(scoreObs);
     qbert->AddObserver(livesDisplay);
+    qbert->NotifyInitialValues();
 
     gsm.RegisterPlayer(qbert);
 
     // Spawner added before Q*bert so Q*bert renders on top of all enemies and discs
     auto gsmAndSpawnerGo = std::make_unique<dae::GameObject>();
-    gsmAndSpawnerGo->AddComponent<dae::GsmUpdaterComponent>(&scene);
+    gsmAndSpawnerGo->AddComponent<dae::GsmUpdaterComponent>(
+        &scene,
+        &g_pyramidGrid,
+        g_gameConfig.roundClearDuration,
+        g_gameConfig.pointsDiscRemaining,
+        g_gameConfig.roundBonusBase,
+        g_gameConfig.roundBonusIncrement,
+        g_gameConfig.roundBonusDisplayDuration,
+        levelIndex,
+        round,
+        roundsPerLevel,
+        AdvanceRound);
     gsmAndSpawnerGo->AddComponent<dae::EnemySpawnerComponent>(
         levelData, g_gameConfig, &g_pyramidGrid, &scene, gsm.GetPlayers(), round);
+    gsmAndSpawnerGo->AddComponent<dae::RoundClearAnimatorComponent>(
+        &g_pyramidGrid, colorColumn, g_gameConfig.roundClearFrameInterval);
     scene.Add(std::move(gsmAndSpawnerGo));
 
     scene.Add(std::move(qbertGo));
@@ -234,7 +322,6 @@ int main(int, char* [])
         g_dataLocation = "../Data/";
 #endif
 
-    // Load config first so PIXEL_SCALE is set before anything else runs
     g_gameConfig = dae::LoadGameConfig((g_dataLocation / "game_config.json").string());
     dae::PIXEL_SCALE = g_gameConfig.pixelScale;
 

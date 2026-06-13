@@ -13,5 +13,10 @@
   "pointsSlickSam": 300,
   "maxLives": 3,
   "curseOffsetX": 12.0,
-  "curseOffsetY": 24.0
+  "curseOffsetY": 24.0,
+  "roundClearDuration": 3.0,
+  "roundClearFrameInterval": 0.1,
+  "roundBonusBase": 1000,
+  "roundBonusIncrement": 250,
+  "roundBonusDisplayDuration": 2.0
 }

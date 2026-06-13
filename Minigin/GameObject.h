@@ -81,6 +81,9 @@ namespace dae
 
 		void MarkForRemoval() { m_markedForRemoval = true; }
 		bool IsMarkedForRemoval() const { return m_markedForRemoval; }
+
+		void SetActive(bool active) { m_active = active; }
+		bool IsActive() const { return m_active; }
 	private:
 		void UpdateWorldPosition();
 		bool IsChild(GameObject* parent) const;
@@ -97,5 +100,6 @@ namespace dae
 
 		std::vector<std::unique_ptr<Component>> m_components{};
 		bool m_markedForRemoval{ false };
+		bool m_active{ true };
 	};
 }

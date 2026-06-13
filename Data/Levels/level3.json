@@ -6,46 +6,44 @@
   "enemyIntroSpeed": 500.0,
   "coily": {
     "enabledPerRound": [ true, true, true, true ],
-    "firstSpawnDelayPerRound": [ 5.0, 4.5, 4.0, 3.5 ],
+    "firstSpawnDelayPerRound": [ 10.0, 8.0, 6.0, 4.0 ],
     "spawnLocations": [
       [ 1, 0 ],
       [ 1, 1 ]
     ],
-    "spawnIntervalMin": [ 4.0, 4.0, 4.0, 4.0 ],
-    "spawnIntervalMax": [ 7.0, 7.0, 7.0, 7.0 ],
-    "hopIntervals": [ 0.8, 0.8, 0.8, 0.8 ],
-    "waitAtBottomPerRound": [ 0.0, 0.0, 0.0, 0.0 ]
+    "hopIntervals": [ 0.6, 0.6, 0.5, 0.5 ],
+    "waitAtBottomPerRound": [ 1.5, 1.5, 1.5, 1.5 ]
   },
   "ugg": {
-    "enabledPerRound": [ true, true, true, true ],
-    "firstSpawnDelayPerRound": [ 6.0, 6.0, 5.5, 5.0 ],
+    "enabledPerRound": [ false, true, true, true ],
+    "firstSpawnDelayPerRound": [ 2.0, 7.0, 2.0, 7.0 ],
     "spawnLocations": [
       [ 6, 6 ]
     ],
-    "spawnIntervalMin": [ 5.0, 5.0, 5.0, 5.0 ],
-    "spawnIntervalMax": [ 9.0, 9.0, 9.0, 9.0 ],
-    "hopIntervals": [ 0.9, 0.9, 0.9, 0.9 ]
+    "spawnIntervalMin": [ 3.0, 3.0, 3.0, 3.0 ],
+    "spawnIntervalMax": [ 5.0, 5.0, 5.0, 5.0 ],
+    "hopIntervals": [ 0.8, 0.8, 0.8, 0.8 ]
   },
   "wrongway": {
-    "enabledPerRound": [ true, true, true, true ],
-    "firstSpawnDelayPerRound": [ 6.0, 6.0, 5.5, 5.0 ],
+    "enabledPerRound": [ false, true, true, true ],
+    "firstSpawnDelayPerRound": [ 7.0, 2.0, 7.0, 2.0 ],
     "spawnLocations": [
       [ 6, 0 ]
     ],
-    "spawnIntervalMin": [ 5.0, 5.0, 5.0, 5.0 ],
-    "spawnIntervalMax": [ 9.0, 9.0, 9.0, 9.0 ],
-    "hopIntervals": [ 0.9, 0.9, 0.9, 0.9 ]
+    "spawnIntervalMin": [ 3.0, 3.0, 3.0, 3.0 ],
+    "spawnIntervalMax": [ 5.0, 5.0, 5.0, 5.0 ],
+    "hopIntervals": [ 0.8, 0.8, 0.8, 0.8 ]
   },
   "slickSam": {
     "enabledPerRound": [ true, true, true, true ],
-    "firstSpawnDelayPerRound": [ 7.0, 7.0, 6.5, 6.0 ],
+    "firstSpawnDelayPerRound": [ 5.0, 4.0, 3.0, 2.0 ],
     "spawnLocations": [
       [ 1, 0 ],
       [ 1, 1 ]
     ],
     "spawnIntervalMin": [ 5.0, 5.0, 5.0, 5.0 ],
-    "spawnIntervalMax": [ 10.0, 10.0, 10.0, 10.0 ],
-    "hopIntervals": [ 1.0, 1.0, 1.0, 1.0 ]
+    "spawnIntervalMax": [ 10.0, 10.0, 8.0, 8.0 ],
+    "hopIntervals": [ 0.6, 0.6, 0.5, 0.5 ]
   },
-  "discCountsPerRound": [ 2, 2, 3, 3 ]
+  "discCountsPerRound": [ 4, 4, 3, 3 ]
 }
