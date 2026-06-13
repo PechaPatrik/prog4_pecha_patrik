@@ -21,5 +21,6 @@ namespace dae
         float m_duration;
         float m_timer{ 0.f };
         bool m_done{ false };
+        bool m_soundPlayed{ false };
     };
 }

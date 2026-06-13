@@ -1,6 +1,8 @@
 #include "CoilyComponent.h"
 #include "GameStateManager.h"
 #include "Scene.h"
+#include "ServiceLocator.h"
+#include "SoundId.h"
 #include <cmath>
 #include <cstdlib>
 
@@ -46,6 +48,7 @@ namespace dae
         m_hopPhase = 0.f;
         m_hopping = true;
         m_fallingOff = true;
+        ServiceLocator::GetSoundSystem().PlaySound(SoundId::CoilyFall);
     }
 
     void CoilyComponent::Update(float deltaTime)

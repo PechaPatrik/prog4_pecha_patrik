@@ -1,5 +1,7 @@
 #include "MenuNavigationComponent.h"
 #include "SceneLoader.h"
+#include "ServiceLocator.h"
+#include "SoundId.h"
 
 namespace dae
 {
@@ -28,16 +30,19 @@ namespace dae
         {
             m_selection = (m_selection + 2) % 3;
             UpdateArrows();
+            ServiceLocator::GetSoundSystem().PlaySound(SoundId::ChangeSelection);
         }
         else if (down)
         {
             m_selection = (m_selection + 1) % 3;
             UpdateArrows();
+            ServiceLocator::GetSoundSystem().PlaySound(SoundId::ChangeSelection);
         }
 
         if (confirm)
         {
             m_confirmed = true;
+            ServiceLocator::GetSoundSystem().PlaySound(SoundId::QbertHit);
             GameMode mode = static_cast<GameMode>(m_selection);
             SceneLoader::GetInstance().LoadInstructionScreen(mode);
         }

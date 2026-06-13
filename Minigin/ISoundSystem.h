@@ -9,7 +9,7 @@ namespace dae
     public:
         virtual ~ISoundSystem() = default;
         virtual void RegisterSound(SoundId id, const std::string& filePath) = 0;
-        virtual void PlaySound(SoundId id, int volume = 128) = 0;
+        virtual void PlaySound(SoundId id, int volume = 80) = 0;
         virtual void SetMuted(bool muted) = 0;
     };
 

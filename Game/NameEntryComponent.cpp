@@ -4,6 +4,8 @@
 #include "TextComponent.h"
 #include "SceneManager.h"
 #include "GameScale.h"
+#include "ServiceLocator.h"
+#include "SoundId.h"
 #include <filesystem>
 #include <string>
 
@@ -78,8 +80,16 @@ namespace dae
             if (right) m_cursors[pi].MoveRight();
             if (confirm) m_cursors[pi].Confirm();
 
-            if ((up || down || left || right || confirm) && pi < static_cast<int>(m_displayTexts.size()))
+            if ((up || down || left || right) && pi < static_cast<int>(m_displayTexts.size()))
+            {
+                ServiceLocator::GetSoundSystem().PlaySound(SoundId::ChangeSelection);
                 UpdateDisplay(pi);
+            }
+            else if (confirm && pi < static_cast<int>(m_displayTexts.size()))
+            {
+                ServiceLocator::GetSoundSystem().PlaySound(SoundId::QbertHit);
+                UpdateDisplay(pi);
+            }
         }
 
         bool allDone = true;

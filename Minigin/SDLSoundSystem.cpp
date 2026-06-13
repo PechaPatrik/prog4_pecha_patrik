@@ -47,6 +47,8 @@ namespace dae
                 return;
             }
 
+            MIX_SetMixerGain(m_Mixer, 0.3f);
+
             m_WorkerThread = std::thread(&Impl::ProcessQueue, this);
         }
 
@@ -101,6 +103,13 @@ namespace dae
         void SetMuted(bool muted)
         {
             m_Muted = muted;
+            if (muted && m_Mixer)
+            {
+                std::lock_guard<std::mutex> lock(m_QueueMutex);
+                while (!m_RequestQueue.empty())
+                    m_RequestQueue.pop();
+                MIX_StopAllTracks(m_Mixer, 0);
+            }
         }
 
     private:

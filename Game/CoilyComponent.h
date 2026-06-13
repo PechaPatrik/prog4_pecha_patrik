@@ -6,6 +6,8 @@
 #include "QbertPyramid.h"
 #include "QbertPlayerComponent.h"
 #include "GameStateManager.h"
+#include "ServiceLocator.h"
+#include "SoundId.h"
 #include <memory>
 #include <cmath>
 #include <functional>
@@ -28,7 +30,7 @@ namespace dae
         {
         }
 
-        ~CoilyComponent() override = default;
+        ~CoilyComponent() override { *m_aliveFlag = false; }
 
         CoilyComponent(const CoilyComponent&) = delete;
         CoilyComponent(CoilyComponent&&) = delete;
@@ -57,6 +59,7 @@ namespace dae
         void QueueMove(int direction)
         {
             if (!IsPlayerControlled()) return;
+            if (GetOwner()->IsMarkedForRemoval()) return;
             auto* snake = dynamic_cast<CoilySnakeState*>(m_state.get());
             if (snake) snake->QueueMove(direction);
         }
@@ -80,6 +83,13 @@ namespace dae
             if (m_hopDuration <= 0.f) m_hopDuration = 0.001f;
             m_hopPhase = 0.f;
             m_hopping = true;
+            if (m_state)
+            {
+                if (m_state->IsEgg())
+                    ServiceLocator::GetSoundSystem().PlaySound(SoundId::CoilyEggJump);
+                else
+                    ServiceLocator::GetSoundSystem().PlaySound(SoundId::CoilySnakeJump);
+            }
         }
 
         bool IsHopping() const { return m_introFalling || m_hopping; }
@@ -132,6 +142,7 @@ namespace dae
         }
 
         bool IsDoingDiscChase() const { return m_isDoingDiscChase; }
+        std::shared_ptr<bool> GetAliveFlag() const { return m_aliveFlag; }
 
     private:
         const QbertPlayerComponent* NearestPlayer() const
@@ -214,5 +225,7 @@ namespace dae
         int m_discNeighbourCol{ 0 };
         int m_discFinalDRow{ 0 };
         int m_discFinalDCol{ 0 };
+
+        std::shared_ptr<bool> m_aliveFlag{ std::make_shared<bool>(true) };
     };
 }

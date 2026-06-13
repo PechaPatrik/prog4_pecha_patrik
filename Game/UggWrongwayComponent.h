@@ -4,6 +4,8 @@
 #include "SpritesheetComponent.h"
 #include "QbertPyramid.h"
 #include "QbertPlayerComponent.h"
+#include "ServiceLocator.h"
+#include "SoundId.h"
 #include <cmath>
 #include <cstdlib>
 
@@ -131,6 +133,7 @@ namespace dae
             if (m_hopDuration <= 0.f) m_hopDuration = 0.001f;
             m_hopPhase = 0.f;
             m_hopping = true;
+            ServiceLocator::GetSoundSystem().PlaySound(SoundId::OtherFoesJump);
         }
 
         void ApplyArcPosition(float t)

@@ -8,6 +8,8 @@
 #include "Scene.h"
 #include "GameObject.h"
 #include "GameScale.h"
+#include "ServiceLocator.h"
+#include "SoundId.h"
 
 namespace dae
 {
@@ -306,6 +308,7 @@ namespace dae
                 {
                     entry.markedForRemoval = true;
                     entry.markForRemoval();
+                    ServiceLocator::GetSoundSystem().PlaySound(SoundId::SlickSamCaught);
                     player->OnCaughtSlickSam();
                 }
                 else
@@ -335,6 +338,7 @@ namespace dae
             {
                 entry.markedForRemoval = true;
                 entry.markForRemoval();
+                ServiceLocator::GetSoundSystem().PlaySound(SoundId::SlickSamCaught);
                 player->OnCaughtSlickSam();
             }
             else
@@ -366,6 +370,7 @@ namespace dae
             {
                 entry.markedForRemoval = true;
                 entry.markForRemoval();
+                ServiceLocator::GetSoundSystem().PlaySound(SoundId::SlickSamCaught);
                 player->OnCaughtSlickSam();
             }
             else

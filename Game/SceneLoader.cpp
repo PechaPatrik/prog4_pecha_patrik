@@ -231,10 +231,17 @@ namespace dae
         }
 
         auto fontSmall = ResourceManager::GetInstance().LoadFont("Minecraft.ttf", fontSizeSmall);
+
+        auto selectHintGo = std::make_unique<GameObject>();
+        auto* selectHintText = selectHintGo->AddComponent<TextComponent>("Enter / A: select", fontSmall);
+        selectHintText->SetColor({ static_cast<uint8_t>(160), static_cast<uint8_t>(160), static_cast<uint8_t>(160), static_cast<uint8_t>(255) });
+        selectHintText->SetPosition(winW * 0.38f, winH * 0.82f);
+        scene.Add(std::move(selectHintGo));
+
         auto hintGo = std::make_unique<GameObject>();
-        auto* hintText = hintGo->AddComponent<TextComponent>("TAB: view highscores", fontSmall);
+        auto* hintText = hintGo->AddComponent<TextComponent>("Tab / Start: view highscores", fontSmall);
         hintText->SetColor({ static_cast<uint8_t>(160), static_cast<uint8_t>(160), static_cast<uint8_t>(160), static_cast<uint8_t>(255) });
-        hintText->SetPosition(winW * 0.38f, winH * 0.88f);
+        hintText->SetPosition(winW * 0.30f, winH * 0.88f);
         scene.Add(std::move(hintGo));
 
         auto navGo = std::make_unique<GameObject>();
@@ -245,6 +252,13 @@ namespace dae
             std::make_unique<CallbackCommand>([]() {
                 SceneLoader::GetInstance().LoadHighscoreDisplay();
                 }));
+        for (unsigned int ci = 0; ci < 2; ++ci)
+        {
+            input.BindControllerCommand(ci, Controller::Button::Start, Controller::KeyState::Down,
+                std::make_unique<CallbackCommand>([]() {
+                    SceneLoader::GetInstance().LoadHighscoreDisplay();
+                    }));
+        }
     }
 
     void SceneLoader::LoadInstructionScreen(GameMode mode)
@@ -255,6 +269,8 @@ namespace dae
         auto& input = InputManager::GetInstance();
 
         input.UnbindKeyboardCommand(SDL_SCANCODE_TAB, Controller::KeyState::Down);
+        for (unsigned int ci = 0; ci < 2; ++ci)
+            input.UnbindControllerCommand(ci, Controller::Button::Start, Controller::KeyState::Down);
         sceneManager.MarkAllScenesForRemoval();
 
         auto& scene = sceneManager.CreateScene();
@@ -864,6 +880,8 @@ namespace dae
 
         auto& input = InputManager::GetInstance();
         input.UnbindKeyboardCommand(SDL_SCANCODE_TAB, Controller::KeyState::Down);
+        for (unsigned int ci = 0; ci < 2; ++ci)
+            input.UnbindControllerCommand(ci, Controller::Button::Start, Controller::KeyState::Down);
 
         auto& scene = sceneManager.CreateScene();
 

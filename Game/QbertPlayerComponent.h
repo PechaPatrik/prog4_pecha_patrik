@@ -4,6 +4,8 @@
 #include "Subject.h"
 #include "SpritesheetComponent.h"
 #include "QbertPyramid.h"
+#include "ServiceLocator.h"
+#include "SoundId.h"
 #include <vector>
 #include <cmath>
 
@@ -102,6 +104,8 @@ namespace dae
             if (m_dead) return;
             m_dead = true;
             if (m_lives > 0) --m_lives;
+            ServiceLocator::GetSoundSystem().PlaySound(SoundId::Swearing);
+            ServiceLocator::GetSoundSystem().PlaySound(SoundId::QbertFall);
             m_subject.NotifyObservers(GameEvent::LivesChanged, m_lives);
             if (m_lives == 0)
                 m_subject.NotifyObservers(GameEvent::PlayerDied, m_playerIndex);
@@ -135,6 +139,7 @@ namespace dae
                 : glm::vec2{ 0.f, 0.f };
 
             GetOwner()->SetLocalPosition(playerOnDiscPos.x, playerOnDiscPos.y);
+            ServiceLocator::GetSoundSystem().PlaySound(SoundId::DiskLift);
         }
 
         void OnCaughtSlickSam()
@@ -172,6 +177,7 @@ namespace dae
             m_hopPhase = 0.f;
             m_hopping = true;
             m_hopOffEdge = false;
+            ServiceLocator::GetSoundSystem().PlaySound(SoundId::QbertJump);
         }
 
         void BeginHopOffEdge(int destRow, int destCol, int dir)
@@ -193,6 +199,7 @@ namespace dae
             m_hopOffEdge = true;
             m_respawnRow = m_gridRow;
             m_respawnCol = m_gridCol;
+            ServiceLocator::GetSoundSystem().PlaySound(SoundId::QbertJump);
         }
 
         void ApplyArcPosition(float t)

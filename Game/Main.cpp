@@ -51,9 +51,34 @@ int main(int, char* [])
     auto soundSystem = std::make_unique<dae::SDLSoundSystem>();
 #endif
 
-    soundSystem->RegisterSound(
-        dae::SoundId::QbertHit,
+    soundSystem->RegisterSound(dae::SoundId::ChangeSelection,
+        dataLocation.string() + "Sounds/Change Selection.wav");
+    soundSystem->RegisterSound(dae::SoundId::CoilyEggJump,
+        dataLocation.string() + "Sounds/Coily Egg Jump.wav");
+    soundSystem->RegisterSound(dae::SoundId::CoilyFall,
+        dataLocation.string() + "Sounds/Coily Fall.wav");
+    soundSystem->RegisterSound(dae::SoundId::CoilySnakeJump,
+        dataLocation.string() + "Sounds/Coily Snake Jump.wav");
+    soundSystem->RegisterSound(dae::SoundId::DiskLand,
+        dataLocation.string() + "Sounds/Disk Land.wav");
+    soundSystem->RegisterSound(dae::SoundId::DiskLift,
+        dataLocation.string() + "Sounds/Disk Lift.wav");
+    soundSystem->RegisterSound(dae::SoundId::LevelScreenTune,
+        dataLocation.string() + "Sounds/Level Screen Tune.wav");
+    soundSystem->RegisterSound(dae::SoundId::OtherFoesJump,
+        dataLocation.string() + "Sounds/Other Foes Jump.wav");
+    soundSystem->RegisterSound(dae::SoundId::QbertFall,
+        dataLocation.string() + "Sounds/QBert Fall.wav");
+    soundSystem->RegisterSound(dae::SoundId::QbertHit,
         dataLocation.string() + "Sounds/Qbert Hit.wav");
+    soundSystem->RegisterSound(dae::SoundId::QbertJump,
+        dataLocation.string() + "Sounds/QBert Jump.wav");
+    soundSystem->RegisterSound(dae::SoundId::RoundCompleteTune,
+        dataLocation.string() + "Sounds/Round Complete Tune.wav");
+    soundSystem->RegisterSound(dae::SoundId::SlickSamCaught,
+        dataLocation.string() + "Sounds/SlickSam Caught.wav");
+    soundSystem->RegisterSound(dae::SoundId::Swearing,
+        dataLocation.string() + "Sounds/Swearing.wav");
     dae::ServiceLocator::RegisterSoundSystem(std::move(soundSystem));
 
     std::srand(static_cast<unsigned int>(std::time(nullptr)));

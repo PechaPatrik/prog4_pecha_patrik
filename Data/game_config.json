@@ -1,7 +1,7 @@
 {
   "pixelScale": 3.0,
-  "freezeDuration": 1.5,
-  "discFlightDuration": 2.0,
+  "freezeDuration": 2.5,
+  "discFlightDuration": 3.0,
   "discDropDuration": 0.25,
   "discFrameDuration": 0.12,
   "arcHeight": 12.0,

@@ -4,6 +4,19 @@ namespace dae
 {
     enum class SoundId
     {
-        QbertHit
+        ChangeSelection,
+        CoilyEggJump,
+        CoilyFall,
+        CoilySnakeJump,
+        DiskLand,
+        DiskLift,
+        LevelScreenTune,
+        OtherFoesJump,
+        QbertFall,
+        QbertHit,
+        QbertJump,
+        RoundCompleteTune,
+        SlickSamCaught,
+        Swearing
     };
 }

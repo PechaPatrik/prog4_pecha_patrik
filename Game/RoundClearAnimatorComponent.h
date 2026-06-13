@@ -3,6 +3,8 @@
 #include "GameStateManager.h"
 #include "QbertPyramid.h"
 #include "SpritesheetComponent.h"
+#include "ServiceLocator.h"
+#include "SoundId.h"
 
 namespace dae
 {
@@ -43,6 +45,12 @@ namespace dae
         {
             if (!GameStateManager::GetInstance().IsRoundClear()) return;
 
+            if (!m_soundPlayed)
+            {
+                m_soundPlayed = true;
+                ServiceLocator::GetSoundSystem().PlaySound(SoundId::RoundCompleteTune);
+            }
+
             m_frameTimer += deltaTime;
             if (m_frameTimer < m_frameInterval) return;
             m_frameTimer -= m_frameInterval;
@@ -58,5 +66,6 @@ namespace dae
         float m_frameInterval;
         float m_frameTimer{ 0.f };
         int m_currentRow{ 2 };
+        bool m_soundPlayed{ false };
     };
 }

@@ -16,7 +16,7 @@ namespace dae
         SDLSoundSystem& operator=(SDLSoundSystem&&) = delete;
 
         void RegisterSound(SoundId id, const std::string& filePath) override;
-        void PlaySound(SoundId id, int volume = 128) override;
+        void PlaySound(SoundId id, int volume = 80) override;
         void SetMuted(bool muted) override;
 
     private:

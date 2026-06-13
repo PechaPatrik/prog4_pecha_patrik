@@ -2,6 +2,8 @@
 #include "DiscComponent.h"
 #include "GameStateManager.h"
 #include "Scene.h"
+#include "ServiceLocator.h"
+#include "SoundId.h"
 
 namespace dae
 {
@@ -67,6 +69,7 @@ namespace dae
                         m_disc->Despawn();
                         m_disc = nullptr;
                     }
+                    ServiceLocator::GetSoundSystem().PlaySound(SoundId::DiskLand);
                 }
                 float t3 = (m_discRideTimer - m_discPhase1Duration - m_discPhase2Duration)
                     / m_discDropDuration;

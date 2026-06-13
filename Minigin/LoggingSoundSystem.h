@@ -19,7 +19,7 @@ namespace dae
             std::cout << "RegisterSound id=" << static_cast<int>(id) << " path=" << filePath << "\n";
         }
 
-        void PlaySound(SoundId id, int volume) override
+        void PlaySound(SoundId id, int volume = 80) override
         {
             m_pReal->PlaySound(id, volume);
             std::cout << "PlaySound id=" << static_cast<int>(id) << " volume=" << volume << "\n";

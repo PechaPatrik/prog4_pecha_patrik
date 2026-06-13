@@ -5,6 +5,8 @@
 #include "QbertPyramid.h"
 #include "QbertPlayerComponent.h"
 #include "CubeComponent.h"
+#include "ServiceLocator.h"
+#include "SoundId.h"
 #include <cmath>
 #include <cstdlib>
 
@@ -111,6 +113,7 @@ namespace dae
             if (m_hopDuration <= 0.f) m_hopDuration = 0.001f;
             m_hopPhase = 0.f;
             m_hopping = true;
+            ServiceLocator::GetSoundSystem().PlaySound(SoundId::OtherFoesJump);
         }
 
         void BeginFall()
