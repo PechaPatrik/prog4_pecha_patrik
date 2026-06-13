@@ -14,6 +14,7 @@
 #include <cmath>
 #include <vector>
 #include <utility>
+#include <functional>
 
 namespace dae
 {
@@ -31,7 +32,8 @@ namespace dae
             const GameConfig& gameConfig,
             PyramidGrid* grid, Scene* scene,
             const std::vector<QbertPlayerComponent*>& players,
-            int round = 0)
+            int round = 0,
+            bool versusMode = false)
             : Component(pOwner)
             , m_levelData(levelData)
             , m_gameConfig(gameConfig)
@@ -39,9 +41,9 @@ namespace dae
             , m_scene(scene)
             , m_players(players)
             , m_round(round)
+            , m_versusMode(versusMode)
         {
             ResetTimers();
-            SpawnDiscs();
             GameStateManager::GetInstance().RegisterRespawnCallback([this]() { ResetTimers(); });
         }
 
@@ -52,10 +54,85 @@ namespace dae
         EnemySpawnerComponent& operator=(const EnemySpawnerComponent&) = delete;
         EnemySpawnerComponent& operator=(EnemySpawnerComponent&&) = delete;
 
+        // Called by SceneLoader before players are added so discs render behind players.
+        // Also called with up-to-date player list so discs can be registered per-player.
+        void SpawnDiscs(const std::vector<QbertPlayerComponent*>& players)
+        {
+            int r = RoundIndex();
+            int discCount = (r < static_cast<int>(m_levelData.discCountsPerRound.size()))
+                ? m_levelData.discCountsPerRound[r] : 2;
+
+            int colorGroup = (r < static_cast<int>(m_levelData.roundColorColumns.size()))
+                ? m_levelData.roundColorColumns[r] : 0;
+
+            std::vector<std::pair<int, int>> candidates;
+            for (int row = -1; row <= 5; ++row)
+            {
+                candidates.emplace_back(row, -1);
+                candidates.emplace_back(row, row + 1);
+            }
+
+            for (int i = static_cast<int>(candidates.size()) - 1; i > 0; --i)
+            {
+                int j = rand() % (i + 1);
+                std::swap(candidates[i], candidates[j]);
+            }
+
+            int placed = 0;
+            for (auto& [dRow, dCol] : candidates)
+            {
+                if (placed >= discCount) break;
+
+                auto go = std::make_unique<GameObject>();
+                glm::vec2 pos = m_grid
+                    ? DiscWorldPos(dRow, dCol)
+                    : glm::vec2{ 0.f, 0.f };
+                go->SetLocalPosition(pos.x, pos.y);
+                go->AddComponent<SpritesheetComponent>("Disk Spritesheet.png", DISC_SRC_W, DISC_SRC_H);
+
+                auto* disc = go->AddComponent<DiscComponent>(
+                    dRow, dCol, colorGroup,
+                    m_gameConfig.discFlightDuration,
+                    m_gameConfig.pointsCoilyDisc,
+                    m_gameConfig.freezeDuration,
+                    m_gameConfig.discFrameDuration,
+                    m_gameConfig.discDropDuration);
+                disc->SetScene(m_scene);
+                disc->SetPyramidGrid(m_grid);
+
+                for (auto* player : players)
+                    if (player) player->RegisterDisc(disc);
+
+                m_scene->Add(std::move(go));
+                ++placed;
+            }
+        }
+
+        // In versus mode, called when Coily becomes a snake so SceneLoader can bind P2 input.
+        // Signature: void(CoilyComponent*)
+        void SetOnCoilyBecameSnake(std::function<void(CoilyComponent*)> cb)
+        {
+            m_onCoilyBecameSnake = std::move(cb);
+        }
+
         void Update(float deltaTime) override
         {
             if (GameStateManager::GetInstance().IsFrozen()) return;
             if (GameStateManager::GetInstance().IsDiscRiding()) return;
+
+            // Versus: detect egg-to-snake transition.
+            // Guard against the GO being marked for removal before the scene cleans it up.
+            if (m_versusMode && m_versusCoilyRaw
+                && !m_versusCoilyRaw->IsMarkedForRemoval()
+                && !m_versusCoilyRaw->IsEgg()
+                && !m_versusSnakeNotified)
+            {
+                m_versusSnakeNotified = true;
+                m_versusCoilyRaw->SetPlayerControlled(true);
+                GameStateManager::GetInstance().SetVersusCoily(m_versusCoilyRaw);
+                if (m_onCoilyBecameSnake)
+                    m_onCoilyBecameSnake(m_versusCoilyRaw);
+            }
 
             TickCoily(deltaTime);
             TickUgg(deltaTime);
@@ -82,6 +159,9 @@ namespace dae
                 m_coilyTimer = -1.f;
 
             m_coilyAlive = false;
+            m_versusCoilyRaw = nullptr;
+            m_versusSnakeNotified = false;
+            GameStateManager::GetInstance().SetVersusCoily(nullptr);
 
             if (IsEnabledForRound(m_levelData.ugg))
                 m_uggTimer = FirstDelay(m_levelData.ugg, r);
@@ -176,58 +256,6 @@ namespace dae
             s->SetPyramidGrid(m_grid);
         }
 
-        void SpawnDiscs()
-        {
-            int r = RoundIndex();
-            int discCount = (r < static_cast<int>(m_levelData.discCountsPerRound.size()))
-                ? m_levelData.discCountsPerRound[r] : 2;
-
-            int colorGroup = (r < static_cast<int>(m_levelData.roundColorColumns.size()))
-                ? m_levelData.roundColorColumns[r] : 0;
-
-            std::vector<std::pair<int, int>> candidates;
-            for (int row = -1; row <= 5; ++row)
-            {
-                candidates.emplace_back(row, -1);
-                candidates.emplace_back(row, row + 1);
-            }
-
-            for (int i = static_cast<int>(candidates.size()) - 1; i > 0; --i)
-            {
-                int j = rand() % (i + 1);
-                std::swap(candidates[i], candidates[j]);
-            }
-
-            int placed = 0;
-            for (auto& [dRow, dCol] : candidates)
-            {
-                if (placed >= discCount) break;
-
-                auto go = std::make_unique<GameObject>();
-                glm::vec2 pos = m_grid
-                    ? DiscWorldPos(dRow, dCol)
-                    : glm::vec2{ 0.f, 0.f };
-                go->SetLocalPosition(pos.x, pos.y);
-                go->AddComponent<SpritesheetComponent>("Disk Spritesheet.png", DISC_SRC_W, DISC_SRC_H);
-
-                auto* disc = go->AddComponent<DiscComponent>(
-                    dRow, dCol, colorGroup,
-                    m_gameConfig.discFlightDuration,
-                    m_gameConfig.pointsCoilyDisc,
-                    m_gameConfig.freezeDuration,
-                    m_gameConfig.discFrameDuration,
-                    m_gameConfig.discDropDuration);
-                disc->SetScene(m_scene);
-                disc->SetPyramidGrid(m_grid);
-
-                for (auto* player : m_players)
-                    if (player) player->RegisterDisc(disc);
-
-                m_scene->Add(std::move(go));
-                ++placed;
-            }
-        }
-
         void TickCoily(float deltaTime)
         {
             if (m_coilyTimer < 0.f || m_coilyAlive) return;
@@ -237,6 +265,7 @@ namespace dae
 
             m_coilyAlive = true;
             m_coilyTimer = 0.f;
+            m_versusSnakeNotified = false;
 
             float hopInterval = HopInterval(m_levelData.coily.hopIntervals);
             float waitAtBottom = WaitAtBottom(m_levelData.coily);
@@ -249,6 +278,20 @@ namespace dae
             coily->SetScene(m_scene);
             coily->SetFreezeDuration(m_gameConfig.freezeDuration);
             ApplyCommonEnemyConfig(coily);
+
+            if (m_versusMode)
+                m_versusCoilyRaw = coily;
+
+            coily->SetOnFellOff([this]()
+                {
+                    m_coilyAlive = false;
+                    m_versusCoilyRaw = nullptr;
+                    m_versusSnakeNotified = false;
+                    GameStateManager::GetInstance().SetVersusCoily(nullptr);
+                    m_coilyTimer = RandomInterval(
+                        m_levelData.coily.spawnIntervalMin,
+                        m_levelData.coily.spawnIntervalMax);
+                });
 
             GameObject* coilyGo = go.get();
 
@@ -264,6 +307,9 @@ namespace dae
                 {
                     coilyGo->MarkForRemoval();
                     m_coilyAlive = false;
+                    m_versusCoilyRaw = nullptr;
+                    m_versusSnakeNotified = false;
+                    GameStateManager::GetInstance().SetVersusCoily(nullptr);
                     m_coilyTimer = RandomInterval(
                         m_levelData.coily.spawnIntervalMin,
                         m_levelData.coily.spawnIntervalMax);
@@ -384,6 +430,11 @@ namespace dae
         Scene* m_scene;
         std::vector<QbertPlayerComponent*> m_players;
         int m_round;
+        bool m_versusMode;
+
+        CoilyComponent* m_versusCoilyRaw{ nullptr };
+        bool m_versusSnakeNotified{ false };
+        std::function<void(CoilyComponent*)> m_onCoilyBecameSnake;
 
         float m_coilyTimer{ 0.f };
         bool m_coilyAlive{ false };

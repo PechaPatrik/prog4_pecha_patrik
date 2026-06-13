@@ -142,6 +142,7 @@ namespace dae
         cfg.roundBonusBase = j.value("roundBonusBase", 1000);
         cfg.roundBonusIncrement = j.value("roundBonusIncrement", 250);
         cfg.roundBonusDisplayDuration = j.value("roundBonusDisplayDuration", 2.f);
+        cfg.levelIntroDuration = j.value("levelIntroDuration", 2.5f);
         return cfg;
     }
 }

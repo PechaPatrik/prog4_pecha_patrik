@@ -5,8 +5,11 @@
 #include "SpritesheetComponent.h"
 #include "QbertPyramid.h"
 #include "QbertPlayerComponent.h"
+#include "GameStateManager.h"
 #include <memory>
 #include <cmath>
+#include <functional>
+#include <climits>
 
 namespace dae
 {
@@ -39,6 +42,24 @@ namespace dae
         void SetArcHeight(float h) { m_arcHeight = h; }
         void SetFallGravity(float g) { m_fallGravity = g; }
         void SetIntroSpeed(float s) { m_introSpeed = s; }
+
+        // When set, the snake state reads queued moves instead of AI pathfinding
+        void SetPlayerControlled(bool controlled) { m_playerControlled = controlled; }
+        bool IsPlayerControlled() const { return m_playerControlled && !IsEgg(); }
+
+        bool IsMarkedForRemoval() const { return GetOwner()->IsMarkedForRemoval(); }
+
+        // Called once when Coily's fall-off animation finishes (off screen).
+        // Used by the spawner to reset its alive/timer state.
+        void SetOnFellOff(std::function<void()> cb) { m_onFellOff = std::move(cb); }
+
+        // Called by CoilyMoveCommand to queue a move direction (0-3)
+        void QueueMove(int direction)
+        {
+            if (!IsPlayerControlled()) return;
+            auto* snake = dynamic_cast<CoilySnakeState*>(m_state.get());
+            if (snake) snake->QueueMove(direction);
+        }
 
         void Update(float deltaTime) override;
 
@@ -76,12 +97,14 @@ namespace dae
         int GetTargetRow() const
         {
             if (m_hasDiscTarget) return m_discNeighbourRow;
-            return m_qbert ? m_qbert->GetGridRow() : 0;
+            const QbertPlayerComponent* t = NearestPlayer();
+            return t ? t->GetGridRow() : 0;
         }
         int GetTargetCol() const
         {
             if (m_hasDiscTarget) return m_discNeighbourCol;
-            return m_qbert ? m_qbert->GetGridCol() : 0;
+            const QbertPlayerComponent* t = NearestPlayer();
+            return t ? t->GetGridCol() : 0;
         }
 
         void ForceJumpOff();
@@ -108,10 +131,27 @@ namespace dae
             }
         }
 
-        // True while Coily is doing the disc-chase fall; prevents FinishDiscRide from removing her
         bool IsDoingDiscChase() const { return m_isDoingDiscChase; }
 
     private:
+        const QbertPlayerComponent* NearestPlayer() const
+        {
+            const QbertPlayerComponent* nearest = nullptr;
+            int bestDist = INT_MAX;
+            for (const auto* p : GameStateManager::GetInstance().GetPlayers())
+            {
+                if (!p || p->IsDead()) continue;
+                int dist = std::abs(p->GetGridRow() - m_gridRow)
+                    + std::abs(p->GetGridCol() - m_gridCol);
+                if (dist < bestDist)
+                {
+                    bestDist = dist;
+                    nearest = p;
+                }
+            }
+            return nearest;
+        }
+
         void ApplyArcPosition(float t)
         {
             float arcH = m_arcHeight * PIXEL_SCALE;
@@ -142,6 +182,10 @@ namespace dae
         float m_hopInterval;
         int m_gridRow;
         int m_gridCol;
+
+        bool m_playerControlled{ false };
+
+        std::function<void()> m_onFellOff;
 
         bool m_hopping{ false };
         float m_hopPhase{ 0.f };

@@ -18,6 +18,16 @@ add_executable(${TARGET_NAME} ${TARGET_PARAM}
   UggWrongwayComponent.cpp
   SlickSamComponent.cpp
   GameScale.cpp
+  SceneLoader.cpp
+  MenuNavigationComponent.cpp
+  InstructionScreenComponent.cpp
+  LevelIntroComponent.cpp
+  PauseOverlayComponent.cpp
+  EndScreenComponent.cpp
+  NameEntryComponent.cpp
+  HighscoreDisplayComponent.cpp
+  HighscoreEntry.cpp
+  
 )
 
 target_compile_features(${TARGET_NAME} PUBLIC cxx_std_20)
@@ -57,7 +67,6 @@ elseif(WIN32)
     VS_DEBUGGER_WORKING_DIRECTORY "$<TARGET_FILE_DIR:${TARGET_NAME}>"
   )
 
-  # Copy SDL DLLs
   add_custom_command(TARGET ${TARGET_NAME} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
       "$<TARGET_FILE:SDL3::SDL3>"
@@ -121,7 +130,6 @@ elseif(APPLE)
   )
 
 else()
-  # Linux / other
   if(Steamworks_FOUND)
     target_link_libraries(${TARGET_NAME} PRIVATE Steamworks::Steamworks)
     target_compile_definitions(${TARGET_NAME} PRIVATE USE_STEAMWORKS)

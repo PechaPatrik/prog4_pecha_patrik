@@ -5,6 +5,35 @@
 
 namespace dae
 {
+    void QbertPlayerComponent::LandFromDisc()
+    {
+        m_onDisc = false;
+        m_discRiding = false;
+        m_discDespawned = false;
+        if (m_disc)
+        {
+            m_disc->Despawn();
+            m_disc = nullptr;
+        }
+        m_gridRow = 0;
+        m_gridCol = m_grid ? m_grid->rowOffsets[0] : 0;
+        m_respawnRow = 0;
+        m_respawnCol = m_gridCol;
+        SnapToGrid();
+        if (m_grid)
+        {
+            auto* cube = m_grid->GetCube(0, 0);
+            if (cube)
+            {
+                bool wasTarget = cube->IsTarget();
+                cube->Step();
+                if (!wasTarget && cube->IsTarget())
+                    AddScore(m_pointsPerCubeChange);
+            }
+        }
+        m_subject.NotifyObservers(GameEvent::PlayerMoved, m_playerIndex);
+    }
+
     void QbertPlayerComponent::Update(float deltaTime)
     {
         if (GameStateManager::GetInstance().IsFrozen()) return;

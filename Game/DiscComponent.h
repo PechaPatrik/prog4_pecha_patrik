@@ -88,6 +88,7 @@ namespace dae
         bool CheckLanded(QbertPlayerComponent* player, int landedRow, int landedCol)
         {
             if (m_riding || m_done) return false;
+            if (GameStateManager::GetInstance().IsDiscRiding()) return false;
             if (landedRow != m_row || landedCol != m_col) return false;
 
             m_riding = true;

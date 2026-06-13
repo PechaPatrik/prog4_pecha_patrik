@@ -18,5 +18,6 @@
   "roundClearFrameInterval": 0.1,
   "roundBonusBase": 1000,
   "roundBonusIncrement": 250,
-  "roundBonusDisplayDuration": 2.0
+  "roundBonusDisplayDuration": 2.0,
+  "levelIntroDuration": 2.5
 }

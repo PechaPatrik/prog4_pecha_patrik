@@ -111,7 +111,10 @@ namespace dae
             GetOwner()->SetLocalPosition(m_fallPos.x, m_fallPos.y);
 
             if (m_fallPos.y > static_cast<float>(GameWindowH()) + 64.f)
+            {
+                if (m_onFellOff) m_onFellOff();
                 GetOwner()->MarkForRemoval();
+            }
             return;
         }
 
@@ -131,6 +134,20 @@ namespace dae
                     glm::vec2 wp = GetOwner()->GetWorldPosition();
                     m_fallPos = { wp.x, wp.y };
                     m_fallSpeed = 0.f;
+                    return;
+                }
+
+                // Player-controlled Coily hopped off the board: award points and fall
+                if (m_playerControlled && m_grid && !m_grid->IsValid(m_gridRow, m_gridCol))
+                {
+                    m_isDoingDiscChase = true;
+                    GameStateManager::GetInstance().OnCoilyFellDuringDisc(m_gridRow, m_gridCol);
+                    if (m_scene)
+                        m_scene->MoveToBack(GetOwner());
+                    glm::vec2 wp = GetOwner()->GetWorldPosition();
+                    m_fallPos = { wp.x, wp.y };
+                    m_fallSpeed = 0.f;
+                    m_fallingOff = true;
                     return;
                 }
 

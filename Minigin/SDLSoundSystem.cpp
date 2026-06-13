@@ -31,6 +31,7 @@ namespace dae
         Impl()
             : m_Mixer(nullptr)
             , m_Quit(false)
+            , m_Muted(false)
         {
             if (!MIX_Init())
             {
@@ -89,11 +90,17 @@ namespace dae
 
         void PlaySound(SoundId id, int volume)
         {
+            if (m_Muted) return;
             if (!m_WorkerThread.joinable()) return;
 
             std::lock_guard<std::mutex> lock(m_QueueMutex);
             m_RequestQueue.push({ id, volume });
             m_Condition.notify_one();
+        }
+
+        void SetMuted(bool muted)
+        {
+            m_Muted = muted;
         }
 
     private:
@@ -130,6 +137,7 @@ namespace dae
         std::condition_variable m_Condition;
         std::thread m_WorkerThread;
         bool m_Quit;
+        bool m_Muted;
     };
 
     SDLSoundSystem::SDLSoundSystem()
@@ -147,5 +155,10 @@ namespace dae
     void SDLSoundSystem::PlaySound(SoundId id, int volume)
     {
         m_pImpl->PlaySound(id, volume);
+    }
+
+    void SDLSoundSystem::SetMuted(bool muted)
+    {
+        m_pImpl->SetMuted(muted);
     }
 }

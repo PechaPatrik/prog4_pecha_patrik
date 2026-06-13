@@ -48,9 +48,14 @@ namespace dae
         int GetCol(bool inAir) const override;
         bool IsEgg() const override { return false; }
 
+        // Called by CoilyMoveCommand when a player controls this Coily
+        void QueueMove(int direction) { m_pendingDir = direction; m_hasMove = true; }
+
     private:
         float m_groundTimer{ 0.f };
         float m_hopInterval;
         int m_direction{ 2 };
+        int m_pendingDir{ -1 };
+        bool m_hasMove{ false };
     };
 }

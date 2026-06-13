@@ -14,7 +14,6 @@ namespace dae
         std::vector<float> spawnIntervalMin;
         std::vector<float> spawnIntervalMax;
         std::vector<float> hopIntervals;
-        // Only used by Coily: time at bottom of pyramid before transforming
         std::vector<float> waitAtBottomPerRound;
     };
 
@@ -23,8 +22,6 @@ namespace dae
         std::vector<int> roundColorColumns;
         LevelRule rule{};
 
-        // Pyramid shape: rowWidths[r] = number of tiles in row r
-        // rowOffsets[r] = horizontal shift of that row in tile-width units (can be negative)
         std::vector<int> rowWidths;
         std::vector<int> rowOffsets;
 
@@ -35,7 +32,6 @@ namespace dae
 
         std::vector<int> discCountsPerRound;
 
-        // Pixels per second for enemy intro slide animation (level-specific)
         float enemyIntroSpeed{ 400.f };
     };
 
@@ -61,6 +57,7 @@ namespace dae
         int roundBonusBase{ 1000 };
         int roundBonusIncrement{ 250 };
         float roundBonusDisplayDuration{ 2.f };
+        float levelIntroDuration{ 2.5f };
     };
 
     LevelData LoadLevelData(const std::string& filePath);

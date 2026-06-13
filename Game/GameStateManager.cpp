@@ -59,6 +59,11 @@ namespace dae
     {
         if (m_frozen) return;
 
+        // If a disc ride is in progress and it's a different player dying, finish the ride
+        // immediately so the rider lands cleanly before the death freeze begins.
+        if (m_discRiding && m_discRider != dyingPlayer)
+            FinishDiscRide(scene);
+
         m_frozen = true;
         m_freezeTimer = 0.f;
         m_freezeDuration = freezeDuration;
@@ -214,8 +219,9 @@ namespace dae
         if (m_discRider)
             m_discRider->LandFromDisc();
 
-        for (auto& cb : m_respawnCallbacks)
-            cb();
+        auto callbacks = m_respawnCallbacks;
+        for (auto& cb : callbacks)
+            if (cb) cb();
 
         m_discRider = nullptr;
         m_discScene = nullptr;
@@ -268,8 +274,9 @@ namespace dae
             for (auto* player : m_players)
                 player->Respawn();
 
-            for (auto& cb : m_respawnCallbacks)
-                cb();
+            auto callbacks = m_respawnCallbacks;
+            for (auto& cb : callbacks)
+                if (cb) cb();
 
             m_dyingPlayer = nullptr;
             return;

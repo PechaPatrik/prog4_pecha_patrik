@@ -50,6 +50,10 @@ namespace dae
 
         void SetCurseOffset(float x, float y) { m_curseOffsetX = x; m_curseOffsetY = y; }
 
+        // Versus: the spawner registers the active Coily so GSM can pass input back
+        void SetVersusCoily(CoilyComponent* coily) { m_versusCoily = coily; }
+        CoilyComponent* GetVersusCoily() const { return m_versusCoily; }
+
         void TriggerPlayerDeath(QbertPlayerComponent* dyingPlayer, Scene* scene,
             float cursePosX, float cursePosY, float freezeDuration);
 
@@ -105,5 +109,7 @@ namespace dae
         float m_discFreezeDuration{ 1.5f };
         float m_discDropDuration{ 0.25f };
         Scene* m_discScene{ nullptr };
+
+        CoilyComponent* m_versusCoily{ nullptr };
     };
 }

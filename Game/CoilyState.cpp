@@ -65,11 +65,40 @@ namespace dae
     {
         m_groundTimer += deltaTime;
         if (m_groundTimer < m_hopInterval) return nullptr;
-        m_groundTimer = 0.f;
 
         const PyramidGrid* grid = coily.GetGrid();
         int row = coily.GetGridRow();
         int col = coily.GetGridCol();
+
+        // Player-controlled: consume queued move if available
+        if (coily.IsPlayerControlled())
+        {
+            if (!m_hasMove) return nullptr;
+
+            m_hasMove = false;
+            int dir = m_pendingDir;
+            m_pendingDir = -1;
+
+            int nr = row + dRow[dir];
+            int nc = col + dCol[dir];
+            if (grid && grid->IsValid(nr, nc))
+            {
+                m_groundTimer = 0.f;
+                m_direction = dir;
+                coily.BeginHop(nr, nc, m_hopInterval);
+            }
+            // If move is off-grid Coily falls off, same as AI
+            else
+            {
+                m_groundTimer = 0.f;
+                coily.BeginHop(nr, nc, m_hopInterval);
+            }
+            return nullptr;
+        }
+
+        // AI-controlled
+        m_groundTimer = 0.f;
+
         int targetRow = coily.GetTargetRow();
         int targetCol = coily.GetTargetCol();
 

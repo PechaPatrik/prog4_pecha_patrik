@@ -25,6 +25,12 @@ namespace dae
             std::cout << "PlaySound id=" << static_cast<int>(id) << " volume=" << volume << "\n";
         }
 
+        void SetMuted(bool muted) override
+        {
+            m_pReal->SetMuted(muted);
+            std::cout << "SetMuted " << (muted ? "true" : "false") << "\n";
+        }
+
     private:
         std::unique_ptr<ISoundSystem> m_pReal;
     };
