@@ -1,0 +1,49 @@
+{
+  "roundColorColumns": [ 0, 1, 2, 3 ],
+  "rule": "SingleStep",
+  "rowWidths": [ 1, 2, 3, 4, 5, 6, 7 ],
+  "rowOffsets": [ 0, 0, 0, 0, 0, 0, 0 ],
+  "enemyIntroSpeed": 400.0,
+  "coily": {
+    "enabledPerRound": [ true, true, true, true ],
+    "firstSpawnDelayPerRound": [ 3.0, 3.0, 6.0, 11.0 ],
+    "spawnLocations": [
+      [ 1, 0 ],
+      [ 1, 1 ]
+    ],
+    "hopIntervals": [ 0.7, 0.7, 0.7, 0.6 ],
+    "waitAtBottomPerRound": [ 2.0, 2.0, 2.0, 2.0 ]
+  },
+  "wrongway": {
+    "enabledPerRound": [ false, false, true, false ],
+    "firstSpawnDelayPerRound": [ 2.0, 2.0, 2.0, 2.0 ],
+    "spawnLocations": [
+      [ 6, 0 ]
+    ],
+    "spawnIntervalMin": [ 5.0, 5.0, 5.0, 5.0 ],
+    "spawnIntervalMax": [ 7.0, 7.0, 7.0, 7.0 ],
+    "hopIntervals": [ 0.9, 0.9, 0.9, 0.9 ]
+  },
+  "ugg": {
+    "enabledPerRound": [ false, false, true, false ],
+    "firstSpawnDelayPerRound": [ 7.0, 7.0, 7.0, 7.0 ],
+    "spawnLocations": [
+      [ 6, 6 ]
+    ],
+    "spawnIntervalMin": [ 5.0, 5.0, 5.0, 5.0 ],
+    "spawnIntervalMax": [ 7.0, 7.0, 7.0, 7.0 ],
+    "hopIntervals": [ 0.9, 0.9, 0.9, 0.9 ]
+  },
+  "slickSam": {
+    "enabledPerRound": [ false, false, true, true ],
+    "firstSpawnDelayPerRound": [ 3.0, 3.0, 3.0, 3.0 ],
+    "spawnLocations": [
+      [ 1, 0 ],
+      [ 1, 1 ]
+    ],
+    "spawnIntervalMin": [ 5.0, 5.0, 5.0, 5.0 ],
+    "spawnIntervalMax": [ 10.0, 10.0, 10.0, 10.0 ],
+    "hopIntervals": [ 0.9, 0.9, 0.9, 0.9 ]
+  },
+  "discCountsPerRound": [ 2, 2, 2, 2 ]
+}

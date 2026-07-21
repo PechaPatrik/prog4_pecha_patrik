@@ -1,0 +1,23 @@
+{
+  "pixelScale": 3.0,
+  "freezeDuration": 2.5,
+  "discFlightDuration": 3.0,
+  "discDropDuration": 0.25,
+  "discFrameDuration": 0.12,
+  "arcHeight": 12.0,
+  "enemyFallGravity": 800.0,
+  "hopDurationQbert": 0.3,
+  "pointsPerCubeChange": 25,
+  "pointsCoilyDisc": 500,
+  "pointsDiscRemaining": 50,
+  "pointsSlickSam": 300,
+  "maxLives": 3,
+  "curseOffsetX": 12.0,
+  "curseOffsetY": 24.0,
+  "roundClearDuration": 3.0,
+  "roundClearFrameInterval": 0.1,
+  "roundBonusBase": 1000,
+  "roundBonusIncrement": 250,
+  "roundBonusDisplayDuration": 2.0,
+  "levelIntroDuration": 2.5
+}
